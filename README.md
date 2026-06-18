@@ -158,6 +158,18 @@ crawler.use(tableExtractor());   // HTML tables to arrays
 | `@vortex/mcp` | MCP server for AI agents |
 | `@vortex/extractors` | YouTube, CSS, schema, table extractors |
 
+## Development
+
+```bash
+git clone https://github.com/Steve-CortesPineda/vortex-crawler.git
+cd vortex-crawler
+pnpm install
+pnpm build      # build all packages
+pnpm test       # run the test suite
+```
+
+Requires Node 18+ and pnpm 8+. The repo is a pnpm/turbo monorepo — packages live under `packages/`.
+
 ## License
 
 MIT
