@@ -37,6 +37,14 @@ export interface AntiBotConfig {
   proxyUrls?: string[];
   proxyRotation: 'round-robin' | 'random' | 'sticky';
   cookies: 'persist' | 'discard';
+  /** AgentBrowser reach strategy. natural = real Chrome, override nothing. */
+  reachProfile?: 'natural' | 'stealth' | 'rotating';
+  /** Browser engine: patchright (undetected) or plain playwright. */
+  engine?: 'patchright' | 'playwright';
+  /** Abort image/media/font + tracker requests for speed/cost. */
+  blockResources?: boolean;
+  /** Real Chrome channel (default 'chrome'); undefined = bundled Chromium. */
+  channel?: string;
 }
 
 export interface StorageBackendConfig {

@@ -33,6 +33,28 @@ export type { VortexPlugin } from './plugin/types.js';
 export { search } from './search.js';
 export type { SearchResult, SearchResponse } from './search.js';
 
+// Agent browser
+export { AgentBrowser } from './agent-browser.js';
+export type { AgentBrowserOptions, ActResult, ExtractResult } from './agent-browser.js';
+export { ProxyManager } from './antibot/proxy-manager.js';
+export { buildLaunchPlan, loadEngine } from './antibot/stealth-launch.js';
+export type { ReachProfile, BrowserEngine, LaunchPlan } from './antibot/stealth-launch.js';
+export { ReadabilityExtractor } from './processor/readability-extractor.js';
+
+// Reach (fallback ladder)
+export { reach, classifyPage } from './reach.js';
+export type { ReachOutcome, ReachStrategy, ReachOptions, PageClass } from './reach.js';
+
+// Discover (broad event discovery — spans all categories, not query-driven)
+export { discover, discoverDomain } from './discover.js';
+export type { DiscoverResult, DiscoverOptions, DiscoveredEvent, DiscoverDomainResult, DiscoverDomainOptions, DomainKey, DomainItem } from './discover.js';
+
+// Browse loop (autonomous multi-hop research)
+export { browse } from './browse.js';
+export type { BrowseResult, BrowseHop, BrowseOptions, RankLinks } from './browse.js';
+export { GenericCache } from './cache/result-cache.js';
+export { bm25ish, scoreLink, ageInDays, recencyScore, tokenize } from './browse-relevance.js';
+
 // Convenience
 export function defineConfig(config: Partial<import('./types/config.js').VortexConfig>) {
   return config;

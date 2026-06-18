@@ -1,9 +1,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { VortexCrawler, search } from '@vortex/core';
+import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, ProxyManager } from '@vortex/core';
 
 const crawler = new VortexCrawler();
+// Proxies (optional) come from VORTEX_PROXIES="http://a:b@host:port,http://..." — consulted by stealth/rotating.
+const proxyManager = new ProxyManager((process.env.VORTEX_PROXIES || '').split(',').map((s) => s.trim()).filter(Boolean));
+const browser = new AgentBrowser({ proxyManager });
 
 const server = new McpServer({
   name: 'vortex-crawler',
@@ -158,7 +161,7 @@ server.tool(
 // ─── Tool: web_search ────────────────────────────────
 server.tool(
   'web_search',
-  'Search the web using DuckDuckGo. No API key required. Returns titles, URLs, and snippets.',
+  'Multi-engine web search (DuckDuckGo + Bing + Mojeek) fused via reciprocal-rank. No API key. Returns titles, URLs, snippets, the engines that found each result, and a fusion score.',
   {
     query: z.string().describe('The search query'),
     maxResults: z.number().default(10).describe('Maximum number of results to return'),
@@ -173,6 +176,86 @@ server.tool(
       }],
     };
   }
+);
+
+// ─── Agent browser: persistent autonomous Chromium session ───
+// Dedicated clean profile. Logins persist once seeded manually. Autonomous EXCEPT hard-stops
+// on credential/payment fields, financial-action clicks, and CAPTCHAs (returns a refusal note).
+const browserResult = (r: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(r, null, 2) }] });
+
+server.tool('browser_open', 'Launch the persistent agent browser (dedicated clean profile, headless). Idempotent.',
+  {},
+  async () => browserResult(await browser.open())
+);
+server.tool('browser_goto', 'Navigate the agent browser to a URL.',
+  { url: z.string().url().describe('URL to open'), waitFor: z.string().optional().describe('Optional CSS selector to wait for') },
+  async (args) => browserResult(await browser.goto(args.url, args.waitFor))
+);
+server.tool('browser_click', 'Click an element by CSS selector, or by visible text when byText=true. Refuses obvious financial/purchase actions.',
+  { target: z.string().describe('CSS selector or visible text'), byText: z.boolean().default(false).describe('Treat target as visible text') },
+  async (args) => browserResult(await browser.click(args.target, args.byText))
+);
+server.tool('browser_type', 'Type text into a field by CSS selector. Refuses credential/payment fields (seed logins manually). Set submit=true to press Enter.',
+  { selector: z.string().describe('CSS selector of the input'), text: z.string().describe('Text to type'), submit: z.boolean().default(false) },
+  async (args) => browserResult(await browser.type(args.selector, args.text, args.submit))
+);
+server.tool('browser_extract', 'Extract the current page as clean LLM-ready markdown (prefers article/main). Reports CAPTCHA detection.',
+  {}, async () => browserResult(await browser.extract())
+);
+server.tool('browser_press', 'Press a keyboard key (e.g. Enter, Escape, PageDown).',
+  { key: z.string().describe('Key name') }, async (args) => browserResult(await browser.press(args.key))
+);
+server.tool('browser_scroll', 'Scroll the page to trigger lazy-loading.',
+  { direction: z.enum(['down', 'up']).default('down'), amount: z.number().default(1) },
+  async (args) => browserResult(await browser.scroll(args.direction, args.amount))
+);
+server.tool('browser_screenshot', 'Save a screenshot of the current viewport to a file path.',
+  { path: z.string().describe('Absolute file path for the PNG') }, async (args) => browserResult(await browser.screenshot(args.path))
+);
+server.tool('browser_close', 'Close the agent browser session (profile + logins persist on disk).',
+  {}, async () => browserResult(await browser.close())
+);
+
+server.tool('browse', 'Autonomous multi-hop research. Seeds from multi-engine search, navigates INTO real source articles (not just aggregator result pages), and FOLLOWS the most relevant links (priority queue, zero-token scoring) to real depth. Relevance gate kills topic drift; recency gate handles staleness. Returns assembled findings with relevance + publish dates. Bounded by maxPages for time/token cost. Use for "what happened / research X" instead of a single search.',
+  {
+    query: z.string().describe('Research question or topic'),
+    maxPages: z.number().default(6).describe('Hard cap on pages visited (controls time + token cost)'),
+    maxSeeds: z.number().default(3).describe('Search seeds allowed in; the rest of the budget is for followed links (forces depth)'),
+    maxDepth: z.number().default(2).describe('How deep to follow links'),
+    minRelevance: z.number().default(0.18).describe('Topic-relevance gate (0..1); higher = stricter, less drift'),
+    maxAgeDays: z.number().optional().describe('Recency gate in days; undated pages are kept regardless'),
+    recencyMode: z.enum(['soft', 'hard']).default('soft').describe('soft = down-weight stale; hard = drop stale pages'),
+  },
+  async (args) => browserResult(await browse(browser, args.query, {
+    maxPages: args.maxPages, maxSeeds: args.maxSeeds, maxDepth: args.maxDepth,
+    minRelevance: args.minRelevance, maxAgeDays: args.maxAgeDays, recencyMode: args.recencyMode,
+  }))
+);
+
+server.tool('reach', 'Get ONE hard-to-reach URL by any legitimate means: direct render → stealth retry (headful real Chrome) → public Wayback/archive.today fallback. STOPS and returns needsHuman on a CAPTCHA or hard paid paywall — it never solves CAPTCHAs or bypasses payment. Returns the page content (markdown + publishDate) or a clear reason.',
+  {
+    url: z.string().url().describe('The URL to reach'),
+    allowArchive: z.boolean().default(true).describe('Allow public Wayback/archive.today/reader fallback'),
+  },
+  async (args) => browserResult(await reach({ url: args.url, agentBrowser: browser, proxyManager, allowArchive: args.allowArchive }))
+);
+
+server.tool('discover', 'Broad event DISCOVERY across ALL categories (vs browse\'s narrow query research). Reads the Wikipedia Current Events Portal day-by-day over a window and buckets every notable event by category — Armed conflicts, Business, Disasters, Politics, Science, Sports, etc. Use for "what happened in the last N days / everything recent" — it surfaces categories you did NOT think to ask about (sports, disasters, obituaries…). Zero model tokens.',
+  {
+    days: z.number().default(30).describe('Window size in days back from today'),
+    category: z.string().optional().describe('Optional filter, e.g. "Sports" or "Science"'),
+    maxPerCategory: z.number().default(60).describe('Cap events kept per category'),
+  },
+  async (args) => browserResult(await discover(browser, { days: args.days, category: args.category, maxPerCategory: args.maxPerCategory }))
+);
+
+server.tool('discover_domain', 'Domain-DEPTH discovery: reads each domain\'s community/primary hubs (Hacker News, Reddit subs, arXiv, Fed) and returns recent items per domain. Catches niche stuff world-feeds and query-search miss (e.g. a new AI agent release). Domains: ai, markets, youtube, crypto. Use alongside discover() (world breadth) for full coverage.',
+  {
+    domains: z.array(z.enum(['ai', 'markets', 'youtube', 'crypto'])).optional().describe('Which domains; omit for all'),
+    perFeed: z.number().default(12).describe('Items kept per RSS feed'),
+    maxAgeDays: z.number().optional().describe('Only items newer than this many days'),
+  },
+  async (args) => browserResult(await discoverDomain(browser, { domains: args.domains ?? 'all', perFeed: args.perFeed, maxAgeDays: args.maxAgeDays }))
 );
 
 // ─── Start ───────────────────────────────────────────
