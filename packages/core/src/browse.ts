@@ -3,6 +3,7 @@ import { search } from './search.js';
 import { PriorityURLQueue } from './pipeline/queue.js';
 import { GenericCache } from './cache/result-cache.js';
 import { bm25ish, scoreLink, tokenize, ageInDays, NAV_RE, AGG_RE } from './browse-relevance.js';
+import { reach } from './reach.js';
 
 /**
  * Autonomous multi-hop browse/research loop.
@@ -48,6 +49,7 @@ export interface BrowseOptions {
   useLLMRanker?: boolean;
   rankLinks?: RankLinks;
   maxLLMCalls?: number;   // cap ranker calls per browse(). Default 4.
+  seedUrls?: string[];    // explicit entry URLs — enqueued at depth 0, bypassing search AND the seed aggregator/homepage filter. For "go look at X and Y".
   cache?: GenericCache<ExtractResult>;
 }
 
@@ -77,14 +79,29 @@ export async function browse(b: AgentBrowser, query: string, opts: BrowseOptions
   const frontier = new PriorityURLQueue();
   const skipped: string[] = [];
 
+  // Explicit seed URLs — when the caller points us AT specific pages ("go look at X and Y"),
+  // enter them directly at depth 0, bypassing search and the aggregator/homepage seed filter.
+  for (const u of opts.seedUrls ?? []) {
+    if (domainOf(u)) frontier.enqueue({ url: u, depth: 0, priority: 3 });
+  }
+
   // Seed — capped. Higher base priority for earlier search ranks, but a strong FOLLOWED link can still
   // outrank a weak seed; combined with the seed cap, this forces real depth into the budget.
+  // Reject only true AGGREGATORS at seed stage (google/bing/reddit/youtube/social). A bare homepage is
+  // often the intended entry point for a company/product lookup, so we allow up to one through.
   const seed = await search(query, { maxResults: 10 });
   let seedsAdded = 0;
+  let homepageSeeds = 0;
   for (const r of seed.results) {
     if (seedsAdded >= maxSeeds) break;
-    if (AGG_RE.test(r.url) || NAV_RE.test(r.url)) { skipped.push(`${r.url} (seed: homepage/aggregator)`); continue; }
-    if (frontier.enqueue({ url: r.url, depth: 0, priority: 2 - seedsAdded * 0.1 })) seedsAdded++;
+    if (AGG_RE.test(r.url)) { skipped.push(`${r.url} (seed: aggregator)`); continue; }
+    const isHomepage = /^https?:\/\/[^/]+\/?$/i.test(r.url);
+    if (isHomepage && homepageSeeds >= 1) { skipped.push(`${r.url} (seed: extra homepage)`); continue; }
+    if (!isHomepage && NAV_RE.test(r.url)) { skipped.push(`${r.url} (seed: nav page)`); continue; }
+    if (frontier.enqueue({ url: r.url, depth: 0, priority: 2 - seedsAdded * 0.1 })) {
+      seedsAdded++;
+      if (isHomepage) homepageSeeds++;
+    }
   }
 
   const domainCount = new Map<string, number>();
@@ -101,9 +118,21 @@ export async function browse(b: AgentBrowser, query: string, opts: BrowseOptions
     if ((domainCount.get(dom) || 0) >= perDomain) { skipped.push(`${url} (domain cap)`); continue; }
 
     try {
-      // Extract (cached by normalized URL).
+      // Extract (cached by normalized URL). Cheap path first; if the page is bot-walled or thin,
+      // escalate that single URL through the reach() ladder (stealth → wayback → archive → reader).
       let ex = cache.get(normKey(url));
-      if (!ex) { await b.goto(url); ex = await b.extract(); cache.set(normKey(url), ex); }
+      if (!ex) {
+        await b.goto(url);
+        ex = await b.extract();
+        const proseLen = ex.markdown.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().length;
+        if (ex.captchaDetected || proseLen < 200) {
+          try {
+            const out = await reach({ url, agentBrowser: b, allowArchive: true, minProse: 200 });
+            if (out.ok) ex = out.result;
+          } catch { /* keep the cheap-path extract */ }
+        }
+        cache.set(normKey(url), ex);
+      }
 
       if (ex.captchaDetected) { skipped.push(`${url} (captcha — human needed)`); continue; }
       const prose = ex.markdown.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();

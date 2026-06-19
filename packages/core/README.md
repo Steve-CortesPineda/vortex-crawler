@@ -1,14 +1,14 @@
-# @vortex/core
+# @stevecortesp/vortex-core
 
 The engine behind [Vortex](https://github.com/Steve-CortesPineda/vortex-crawler) — an adaptive,
 3-tier web crawler with LLM-optimized markdown output.
 
 ```bash
-npm install @vortex/core
+npm install @stevecortesp/vortex-core
 ```
 
 ```typescript
-import { VortexCrawler } from '@vortex/core';
+import { VortexCrawler } from '@stevecortesp/vortex-core';
 
 const crawler = new VortexCrawler();
 const result = await crawler.scrape('https://example.com');

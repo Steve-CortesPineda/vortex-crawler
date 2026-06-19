@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import { existsSync, readFileSync, unlinkSync, mkdtempSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import type { VortexPlugin, CrawlResult } from '@vortex/core';
+import type { VortexPlugin, CrawlResult } from '@stevecortesp/vortex-core';
 
 interface TranscriptSegment {
   start: number;

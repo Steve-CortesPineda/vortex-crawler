@@ -1,4 +1,4 @@
-import type { VortexPlugin, CrawlResult } from '@vortex/core';
+import type { VortexPlugin, CrawlResult } from '@stevecortesp/vortex-core';
 
 interface VideoDetails {
   title: string;

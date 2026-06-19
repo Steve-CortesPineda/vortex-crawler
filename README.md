@@ -46,7 +46,7 @@ selective rendering, not a smaller footprint — Node + the HTML stack sits arou
 ## Install
 
 ```bash
-npm install @vortex/core      # or: @vortex/cli, @vortex/mcp, @vortex/extractors
+npm install @stevecortesp/vortex-core      # or: @stevecortesp/vortex-cli, @stevecortesp/vortex-mcp, @stevecortesp/vortex-extractors
 ```
 
 Or run from source (also how you contribute):
@@ -59,7 +59,7 @@ cd vortex-crawler && pnpm install && pnpm build
 ## Quick Start
 
 ```typescript
-import { VortexCrawler } from '@vortex/core';
+import { VortexCrawler } from '@stevecortesp/vortex-core';
 
 const crawler = new VortexCrawler();
 
@@ -75,24 +75,24 @@ for await (const page of crawler.crawl('https://example.com', { maxDepth: 3 })) 
 }
 
 // Search the web
-import { search } from '@vortex/core';
+import { search } from '@stevecortesp/vortex-core';
 const results = await search('best web frameworks 2026');
 ```
 
 ## CLI
 
 ```bash
-npx @vortex/cli scrape https://example.com          # Markdown to stdout
-npx @vortex/cli scrape https://example.com --json    # Full JSON output
-npx @vortex/cli crawl https://example.com -n 50      # Crawl 50 pages
-npx @vortex/cli map https://example.com              # Discover all URLs
-npx @vortex/cli search "your query here"             # Web search
+npx @stevecortesp/vortex-cli scrape https://example.com          # Markdown to stdout
+npx @stevecortesp/vortex-cli scrape https://example.com --json    # Full JSON output
+npx @stevecortesp/vortex-cli crawl https://example.com -n 50      # Crawl 50 pages
+npx @stevecortesp/vortex-cli map https://example.com              # Discover all URLs
+npx @stevecortesp/vortex-cli search "your query here"             # Web search
 ```
 
 ## MCP Server (for AI agents)
 
 ```bash
-npx @vortex/mcp
+npx @stevecortesp/vortex-mcp
 ```
 
 **18 tools**, grouped:
@@ -113,7 +113,7 @@ Add to Claude Code:
     "vortex": {
       "type": "command",
       "command": "npx",
-      "args": ["@vortex/mcp"]
+      "args": ["@stevecortesp/vortex-mcp"]
     }
   }
 }
@@ -125,7 +125,7 @@ Beyond single-page scraping, Vortex can run multi-step research on its own — a
 calls in the hot path; heuristics do the ranking).
 
 ```typescript
-import { AgentBrowser, browse, reach, track } from '@vortex/core';
+import { AgentBrowser, browse, reach, track } from '@stevecortesp/vortex-core';
 
 const b = new AgentBrowser();           // persistent, scriptable Chromium (logs into nothing by default)
 
@@ -160,8 +160,8 @@ The `TierDetector` uses heuristic scoring (pre-fetch URL analysis + post-fetch H
 ## YouTube Support
 
 ```typescript
-import { VortexCrawler } from '@vortex/core';
-import { youtubeExtractor, transcriptExtractor } from '@vortex/extractors';
+import { VortexCrawler } from '@stevecortesp/vortex-core';
+import { youtubeExtractor, transcriptExtractor } from '@stevecortesp/vortex-extractors';
 
 const crawler = new VortexCrawler();
 crawler.use(youtubeExtractor());
@@ -180,7 +180,7 @@ const channel = await crawler.scrape('https://www.youtube.com/@MrBeast/videos');
 ## Plugin System
 
 ```typescript
-import type { VortexPlugin } from '@vortex/core';
+import type { VortexPlugin } from '@stevecortesp/vortex-core';
 
 const myPlugin: VortexPlugin = {
   name: 'my-plugin',
@@ -206,7 +206,7 @@ crawler.use(myPlugin);
 ## Built-in Extractors
 
 ```typescript
-import { cssExtractor, schemaExtractor, tableExtractor } from '@vortex/extractors';
+import { cssExtractor, schemaExtractor, tableExtractor } from '@stevecortesp/vortex-extractors';
 
 crawler.use(cssExtractor({ title: 'h1', price: '.price', description: '.desc' }));
 crawler.use(schemaExtractor());  // JSON-LD structured data
@@ -217,10 +217,10 @@ crawler.use(tableExtractor());   // HTML tables to arrays
 
 | Package | Description |
 |---------|-------------|
-| `@vortex/core` | Crawler engine, adaptive rendering, caching, plugins, multi-engine search, agent browser, `browse`/`reach`/`track`, anti-bot/stealth |
-| `@vortex/cli` | Command-line interface |
-| `@vortex/mcp` | MCP server for AI agents (18 tools) |
-| `@vortex/extractors` | YouTube, CSS, schema, table extractors |
+| `@stevecortesp/vortex-core` | Crawler engine, adaptive rendering, caching, plugins, multi-engine search, agent browser, `browse`/`reach`/`track`, anti-bot/stealth |
+| `@stevecortesp/vortex-cli` | Command-line interface |
+| `@stevecortesp/vortex-mcp` | MCP server for AI agents (18 tools) |
+| `@stevecortesp/vortex-extractors` | YouTube, CSS, schema, table extractors |
 
 ## Development
 

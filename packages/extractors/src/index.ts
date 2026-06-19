@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import type { VortexPlugin, CrawlResult } from '@vortex/core';
+import type { VortexPlugin, CrawlResult } from '@stevecortesp/vortex-core';
 
 export { youtubeExtractor } from './youtube.js';
 export { transcriptExtractor } from './transcript.js';

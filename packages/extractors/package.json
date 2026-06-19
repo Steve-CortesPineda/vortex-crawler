@@ -1,5 +1,5 @@
 {
-  "name": "@vortex/extractors",
+  "name": "@stevecortesp/vortex-extractors",
   "version": "0.1.0",
   "description": "Vortex extractor plugins — YouTube (video/channel/transcript), CSS, JSON-LD schema, and HTML tables.",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "dev": "tsup src/index.ts --format esm --dts --watch"
   },
   "dependencies": {
-    "@vortex/core": "workspace:*",
+    "@stevecortesp/vortex-core": "workspace:*",
     "cheerio": "^1.0.0"
   },
   "devDependencies": {

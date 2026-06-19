@@ -1,5 +1,5 @@
 {
-  "name": "@vortex/cli",
+  "name": "@stevecortesp/vortex-cli",
   "version": "0.1.0",
   "description": "Command-line interface for Vortex — scrape, crawl, map, and search from your terminal.",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@vortex/core": "workspace:*",
+    "@stevecortesp/vortex-core": "workspace:*",
     "commander": "^13.0.0",
     "chalk": "^5.4.0",
     "ora": "^8.0.0"

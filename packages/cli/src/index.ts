@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { VortexCrawler, search } from '@vortex/core';
-import type { RenderTier } from '@vortex/core';
+import { VortexCrawler, search } from '@stevecortesp/vortex-core';
+import type { RenderTier } from '@stevecortesp/vortex-core';
 
 const program = new Command();
 

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager } from '@vortex/core';
+import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager } from '@stevecortesp/vortex-core';
 
 const crawler = new VortexCrawler();
 // Proxies (optional) come from VORTEX_PROXIES="http://a:b@host:port,http://..." — consulted by stealth/rotating.
@@ -225,10 +225,12 @@ server.tool('browse', 'Autonomous multi-hop research. Seeds from multi-engine se
     minRelevance: z.number().default(0.18).describe('Topic-relevance gate (0..1); higher = stricter, less drift'),
     maxAgeDays: z.number().optional().describe('Recency gate in days; undated pages are kept regardless'),
     recencyMode: z.enum(['soft', 'hard']).default('soft').describe('soft = down-weight stale; hard = drop stale pages'),
+    seedUrls: z.array(z.string().url()).optional().describe('Explicit entry URLs to enter directly (bypasses search + the homepage/aggregator filter). Use when told to "go look at" specific pages — including company homepages.'),
   },
   async (args) => browserResult(await browse(browser, args.query, {
     maxPages: args.maxPages, maxSeeds: args.maxSeeds, maxDepth: args.maxDepth,
     minRelevance: args.minRelevance, maxAgeDays: args.maxAgeDays, recencyMode: args.recencyMode,
+    seedUrls: args.seedUrls,
   }))
 );
 

@@ -1,4 +1,4 @@
-import { VortexCrawler } from '@vortex/core';
+import { VortexCrawler } from '@stevecortesp/vortex-core';
 
 async function main() {
   const crawler = new VortexCrawler();
