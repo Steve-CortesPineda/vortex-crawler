@@ -58,10 +58,18 @@ export class TierDetector {
     // SPA framework bundles in script tags
     if (SPA_FRAMEWORKS_RE.test(html)) score += 0.2;
 
-    // Very small body with many scripts = likely SPA
-    const bodyText = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, '').trim();
+    // Thin visible text but the page ships JS = content is rendered client-side (classic SPA / JS
+    // data-render). Judge by how little text actually survives, not just script *count* — many such
+    // pages (e.g. inline-data renderers) have only 1–2 script tags. Guarded by presence of JS so
+    // genuinely static thin pages (e.g. a plain landing page with no scripts) are NOT escalated.
+    // Collapse whitespace so we measure VISIBLE text, not inter-tag indentation. Without this, a
+    // near-empty JS shell reads as hundreds of "chars" of whitespace — defeating the thin-content
+    // signal and falsely tripping the "has real content" negative below.
+    const bodyText = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
     const scriptCount = (html.match(/<script/gi) || []).length;
-    if (bodyText.length < 500 && scriptCount > 3) score += 0.25;
+    const hasInlineLogic = /<script[^>]*>[\s\S]{200,}<\/script>/i.test(html);
+    if (bodyText.length < 200 && (scriptCount >= 1 || hasInlineLogic)) score += 0.6;        // near-empty + JS → render in a browser
+    else if (bodyText.length < 600 && (scriptCount > 2 || hasInlineLogic)) score += 0.3;    // thin + scripted → at least jsdom
 
     // Negative signals: page already has substantial content — these are strong
     // because if the server sent real text, JS rendering won't add much

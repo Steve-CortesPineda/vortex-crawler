@@ -1,6 +1,16 @@
 {
   "name": "@vortex/cli",
   "version": "0.1.0",
+  "description": "Command-line interface for Vortex — scrape, crawl, map, and search from your terminal.",
+  "license": "MIT",
+  "author": "Steve Cortes-Pineda",
+  "homepage": "https://github.com/Steve-CortesPineda/vortex-crawler#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/Steve-CortesPineda/vortex-crawler.git", "directory": "packages/cli" },
+  "bugs": "https://github.com/Steve-CortesPineda/vortex-crawler/issues",
+  "keywords": ["web-crawler", "web-scraping", "cli", "markdown", "llm"],
+  "engines": { "node": ">=18" },
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
   "type": "module",
   "bin": {
     "vortex": "./dist/index.js"

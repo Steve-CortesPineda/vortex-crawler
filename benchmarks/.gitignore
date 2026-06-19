@@ -1,0 +1,5 @@
+.venv/
+competitors/node_modules/
+competitors/package.json
+competitors/package-lock.json
+results.json

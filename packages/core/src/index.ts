@@ -49,6 +49,10 @@ export type { ReachOutcome, ReachStrategy, ReachOptions, PageClass } from './rea
 export { discover, discoverDomain } from './discover.js';
 export type { DiscoverResult, DiscoverOptions, DiscoveredEvent, DiscoverDomainResult, DiscoverDomainOptions, DomainKey, DomainItem } from './discover.js';
 
+// Tracker (local oracle — watchlist + persistent accumulation)
+export { track, setWatchlist, getWatchlist, DEFAULT_WATCHLIST } from './tracker.js';
+export type { WatchEntity, TrackedMention, TrackDigest, TrackOptions, EntityType } from './tracker.js';
+
 // Browse loop (autonomous multi-hop research)
 export { browse } from './browse.js';
 export type { BrowseResult, BrowseHop, BrowseOptions, RankLinks } from './browse.js';

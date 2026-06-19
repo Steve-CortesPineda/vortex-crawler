@@ -7,7 +7,7 @@
     "dev": "turbo run dev",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "bench": "tsx benchmarks/speed.ts"
+    "bench": "node benchmarks/run.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0",

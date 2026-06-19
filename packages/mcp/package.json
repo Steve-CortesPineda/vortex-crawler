@@ -1,6 +1,16 @@
 {
   "name": "@vortex/mcp",
   "version": "0.1.0",
+  "description": "MCP server exposing Vortex's 18 tools (scrape, crawl, search, autonomous browse/reach, discovery, tracking) to AI agents.",
+  "license": "MIT",
+  "author": "Steve Cortes-Pineda",
+  "homepage": "https://github.com/Steve-CortesPineda/vortex-crawler#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/Steve-CortesPineda/vortex-crawler.git", "directory": "packages/mcp" },
+  "bugs": "https://github.com/Steve-CortesPineda/vortex-crawler/issues",
+  "keywords": ["mcp", "model-context-protocol", "web-crawler", "web-scraping", "ai-agents", "llm"],
+  "engines": { "node": ">=18" },
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
   "type": "module",
   "bin": {
     "vortex-mcp": "./dist/index.js"

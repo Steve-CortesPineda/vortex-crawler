@@ -28,7 +28,7 @@ const RRF_K = 60;
 const PER_ENGINE_TIMEOUT_MS = 8000;
 
 /** Normalize a URL for cross-engine dedupe: lowercase host, drop tracking params, trailing slash, fragment. */
-function normalizeUrl(raw: string): string {
+export function normalizeUrl(raw: string): string {
   try {
     const u = new URL(raw);
     u.hash = '';
@@ -87,7 +87,7 @@ async function searchDuckDuckGo(query: string, max: number, region?: string): Pr
 }
 
 /** Bing wraps result URLs in a bing.com/ck/a redirect with the real URL base64url-encoded in the `u=a1…` param. */
-function decodeBingUrl(href: string): string {
+export function decodeBingUrl(href: string): string {
   if (!href.includes('bing.com/ck/a')) return href;
   try {
     const enc = new URL(href).searchParams.get('u') || '';

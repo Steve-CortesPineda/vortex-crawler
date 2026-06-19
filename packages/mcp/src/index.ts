@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, ProxyManager } from '@vortex/core';
+import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager } from '@vortex/core';
 
 const crawler = new VortexCrawler();
 // Proxies (optional) come from VORTEX_PROXIES="http://a:b@host:port,http://..." — consulted by stealth/rotating.
@@ -256,6 +256,29 @@ server.tool('discover_domain', 'Domain-DEPTH discovery: reads each domain\'s com
     maxAgeDays: z.number().optional().describe('Only items newer than this many days'),
   },
   async (args) => browserResult(await discoverDomain(browser, { domains: args.domains ?? 'all', perFeed: args.perFeed, maxAgeDays: args.maxAgeDays }))
+);
+
+server.tool('track', 'Run the local tracking ORACLE over your watchlist: for each watched entity (person/org/ticker/topic/channel) pull targeted search sweeps + domain feeds, match, dedupe against everything seen before, and report only NEW developments per entity. Accumulates to a persistent local store (~/.vortex-tracker/store.json). Answers "what\'s new about the things I track".',
+  { perEntity: z.number().default(6).describe('Results per entity sweep') },
+  async (args) => browserResult(await track(browser, { perEntity: args.perEntity }))
+);
+
+server.tool('watchlist', 'View or replace the tracking watchlist. Pass entities to set; omit to view current. Each entity: {name, type: person|org|ticker|topic|channel, aliases?, domains?}.',
+  { entities: z.array(z.object({ name: z.string(), type: z.enum(['person', 'org', 'ticker', 'topic', 'channel']), aliases: z.array(z.string()).optional(), domains: z.array(z.enum(['ai', 'markets', 'youtube', 'crypto'])).optional() })).optional().describe('Set the watchlist; omit to view') },
+  async (args) => { if (args.entities) await setWatchlist(args.entities); return browserResult({ watchlist: await getWatchlist() }); }
+);
+
+server.tool('search_google', 'High-quality search via Google\'s real index — finds LinkedIn, specific people, and pages the default web_search (Bing/DuckDuckGo/Mojeek) misses or buries. Bypasses Google\'s bot-wall with a headful stealth browser (opens a brief real Chrome window, slower). Use when you need Google-grade results, especially finding a specific person/profile.',
+  { query: z.string().describe('Search query'), maxResults: z.number().default(10) },
+  async (args) => {
+    // Persistent profile under $HOME by default (survives an unmounted external drive; override with
+    // VORTEX_TRACKER_DIR). Log into Google ONCE here (headful) and the session sticks —
+    // logged-in Google rarely rate-limits at personal volume. Free, no API. Self-paces + backs off.
+    const trackerDir = process.env.VORTEX_TRACKER_DIR || `${process.env.HOME}/.vortex-tracker`;
+    const gb = new AgentBrowser({ reachProfile: 'natural', headless: false, channel: 'chrome', profileDir: `${trackerDir}/google-profile` });
+    try { await gb.open(); return browserResult({ query: args.query, engine: 'google', results: await gb.googleSearch(args.query, args.maxResults) }); }
+    finally { await gb.close(); }
+  }
 );
 
 // ─── Start ───────────────────────────────────────────
