@@ -5,12 +5,31 @@
   "license": "MIT",
   "author": "Steve Cortes-Pineda",
   "homepage": "https://github.com/Steve-CortesPineda/vortex-crawler#readme",
-  "repository": { "type": "git", "url": "git+https://github.com/Steve-CortesPineda/vortex-crawler.git", "directory": "packages/core" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Steve-CortesPineda/vortex-crawler.git",
+    "directory": "packages/core"
+  },
   "bugs": "https://github.com/Steve-CortesPineda/vortex-crawler/issues",
-  "keywords": ["web-crawler", "web-scraping", "scraper", "markdown", "llm", "playwright", "mcp", "typescript"],
-  "engines": { "node": ">=18" },
-  "files": ["dist"],
-  "publishConfig": { "access": "public" },
+  "keywords": [
+    "web-crawler",
+    "web-scraping",
+    "scraper",
+    "markdown",
+    "llm",
+    "playwright",
+    "mcp",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,7 +46,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator",
+    "build": "tsup src/index.ts --format esm --dts --clean --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator --external undici",
     "dev": "tsup src/index.ts --format esm --dts --watch --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -37,7 +56,8 @@
     "micromatch": "^4.0.8",
     "murmurhash3js-revisited": "^3.0.0",
     "p-queue": "^8.0.0",
-    "turndown": "^7.2.0"
+    "turndown": "^7.2.0",
+    "undici": "^8.5.0"
   },
   "optionalDependencies": {
     "@mozilla/readability": "^0.6.0",

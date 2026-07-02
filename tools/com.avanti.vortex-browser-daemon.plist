@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Vortex Browser Daemon — one warm shared Chromium behind localhost HTTP (see browser-daemon.mjs).
+  Install:
+    cp tools/com.avanti.vortex-browser-daemon.plist ~/Library/LaunchAgents/
+    launchctl load  ~/Library/LaunchAgents/com.avanti.vortex-browser-daemon.plist
+  Stop/remove:
+    launchctl unload ~/Library/LaunchAgents/com.avanti.vortex-browser-daemon.plist
+  Set a token by adding VORTEX_DAEMON_TOKEN to EnvironmentVariables below.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.avanti.vortex-browser-daemon</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Volumes/AVANTI/Projects/vortex-crawler/browser-daemon.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Volumes/AVANTI/Projects/vortex-crawler</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>VORTEX_DAEMON_PORT</key>
+    <string>4477</string>
+    <key>VORTEX_RPS</key>
+    <string>2</string>
+    <key>HOME</key>
+    <string>/Users/stevecortes-pineda</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/stevecortes-pineda/Library/Logs/avanti/vortex-browser-daemon.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/stevecortes-pineda/Library/Logs/avanti/vortex-browser-daemon.err.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

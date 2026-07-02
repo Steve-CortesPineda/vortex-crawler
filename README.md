@@ -219,7 +219,7 @@ crawler.use(tableExtractor());   // HTML tables to arrays
 |---------|-------------|
 | `@stevecortesp/vortex-core` | Crawler engine, adaptive rendering, caching, plugins, multi-engine search, agent browser, `browse`/`reach`/`track`, anti-bot/stealth |
 | `@stevecortesp/vortex-cli` | Command-line interface |
-| `@stevecortesp/vortex-mcp` | MCP server for AI agents (18 tools) |
+| `@stevecortesp/vortex-mcp` | MCP server for AI agents (20 tools, incl. parallel extract/screenshot) |
 | `@stevecortesp/vortex-extractors` | YouTube, CSS, schema, table extractors |
 
 ## Development
@@ -233,6 +233,57 @@ pnpm test       # run the test suite
 ```
 
 Requires Node 18+ and pnpm 8+. The repo is a pnpm/turbo monorepo — packages live under `packages/`.
+
+## Browser daemon (shared, warm, parallel)
+
+`browser-daemon.mjs` runs **one** persistent Chromium behind a localhost HTTP API so multiple
+consumers — the MCP server (Claude), the AVA/VANTA sidecar, background daemons — share a single
+browser instead of each launching its own (which caused duplicate Chromiums and profile-lock
+conflicts). It's also the single process hosting the shared per-domain governor, so parallel callers
+can't collectively out-run a host's rate limit.
+
+```bash
+node browser-daemon.mjs                 # binds 127.0.0.1:4477 (VORTEX_DAEMON_PORT to change)
+# keep it warm via launchd:
+cp tools/com.avanti.vortex-browser-daemon.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.avanti.vortex-browser-daemon.plist
+```
+
+HTTP API (all POST JSON except `/health`; add `Authorization: Bearer <VORTEX_DAEMON_TOKEN>` if set):
+
+| Path | Body | Purpose |
+|------|------|---------|
+| `GET /health` | — | liveness + uptime |
+| `/page` | `{url, waitFor?}` | navigate + extract one URL → markdown |
+| `/parallel_extract` | `{urls[], concurrency?, settleMs?}` | fetch+extract MANY at once (bounded tab pool) |
+| `/parallel_screenshot` | `{jobs:[{url,path}], concurrency?}` | screenshot many at once |
+| `/browse` | `{query, maxPages?, seedUrls?, …}` | autonomous multi-hop research loop |
+| `/reach` | `{url, allowArchive?}` | hard-to-reach single URL (stealth→wayback→reader ladder) |
+| `/search` | `{query, maxResults?, recency?}` | multi-engine web search (+ Google fallback) |
+| `/google` | `{query, maxResults?}` | Google-index search via headful stealth |
+| `/goto` `/extract` `/click` `/type` `/scroll` `/press` `/screenshot` | interactive single-page ops |
+
+Node consumers can use the typed client instead of raw HTTP:
+
+```ts
+import { VortexDaemonClient } from '@stevecortesp/vortex-core';
+const vx = new VortexDaemonClient();               // http://127.0.0.1:4477 by default
+if (await vx.healthy()) {
+  const pages = await vx.parallelExtract([urlA, urlB, urlC], { concurrency: 6 });
+}
+```
+
+Python/Swift (VANTA sidecar) just POST the same JSON to the same paths — the client is a convenience,
+not the contract.
+
+## Anti-rate-limit design
+
+- **Shared per-domain governor** (`sharedGovernor`, `pipeline/rate-limiter.ts`) — jittered spacing plus
+  adaptive exponential backoff on `429/503/403/52x`, honoring `Retry-After`. Wired into single scrape,
+  the browse loop, and parallel tab extraction, so N parallel callers honor one host's limit globally.
+- **Per-domain sticky identity** (`antibot/headers.ts`) — a host always sees the same User-Agent +
+  Accept-Language for the process, instead of flipping between requests (which reads as a bot).
+- **Profile-based stealth** (`natural`/`stealth`/`rotating`) via Patchright; optional proxy egress.
 
 ## License
 

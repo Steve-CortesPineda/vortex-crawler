@@ -1,12 +1,42 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager } from '@stevecortesp/vortex-core';
+import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager, ocrUrl, ocrAvailable, VortexDaemonClient } from '@stevecortesp/vortex-core';
 
 const crawler = new VortexCrawler();
 // Proxies (optional) come from VORTEX_PROXIES="http://a:b@host:port,http://..." — consulted by stealth/rotating.
 const proxyManager = new ProxyManager((process.env.VORTEX_PROXIES || '').split(',').map((s) => s.trim()).filter(Boolean));
 const browser = new AgentBrowser({ proxyManager });
+
+// ── Shared browser daemon (preferred when running) ───────────────────────────
+// If the local browser daemon (browser-daemon.mjs) is up, route all browser/browse/reach/search work
+// through it so Claude shares ONE warm Chromium with VANTA + the background daemons — no duplicate
+// browsers, no profile-dir lock fights, and the daemon's shared governor rate-limits globally. When
+// the daemon is DOWN we transparently fall back to the in-process browser (unchanged legacy behavior).
+// The in-process `browser`/`googleBrowser` are only ever opened on the fallback path.
+const daemon = new VortexDaemonClient();
+let _daemonOk: boolean | null = null;
+let _daemonCheckedAt = 0;
+async function daemonUp(): Promise<boolean> {
+  if (Date.now() - _daemonCheckedAt < 30_000 && _daemonOk !== null) return _daemonOk;
+  _daemonOk = await daemon.healthy().catch(() => false);
+  _daemonCheckedAt = Date.now();
+  return _daemonOk;
+}
+
+// Warm stealth-Chrome for the hybrid web_search fallback tier (and search_google). Lazily launched and
+// kept alive across calls so the ~seconds launch cost is paid once, not per query. Persistent profile —
+// log into Google ONCE (headful) and the session sticks; logged-in Google rarely rate-limits. One shared
+// singleton avoids a user-data-dir lock conflict between web_search's fallback and search_google.
+const trackerDir = process.env.VORTEX_TRACKER_DIR || `${process.env.HOME}/.vortex-tracker`;
+let googleBrowser: AgentBrowser | null = null;
+async function getGoogleBrowser(): Promise<AgentBrowser> {
+  if (!googleBrowser) {
+    googleBrowser = new AgentBrowser({ reachProfile: 'natural', headless: false, channel: 'chrome', profileDir: `${trackerDir}/google-profile` });
+    await googleBrowser.open();
+  }
+  return googleBrowser;
+}
 
 const server = new McpServer({
   name: 'vortex-crawler',
@@ -161,13 +191,23 @@ server.tool(
 // ─── Tool: web_search ────────────────────────────────
 server.tool(
   'web_search',
-  'Multi-engine web search (DuckDuckGo + Bing + Mojeek) fused via reciprocal-rank. No API key. Returns titles, URLs, snippets, the engines that found each result, and a fusion score.',
+  'Multi-engine web search (Brave + Startpage + Bing + Mojeek) fused via relevance-blended reciprocal-rank, with a per-engine circuit breaker (bot-walled engines are skipped while cooling down) and syndication dedupe (MSN/Yahoo copies collapse into the original article). No API key. Returns titles, URLs, snippets, the engines that found each result, a blended score, and a per-engine health report (engineReports). Hybrid: if the fast fetch tier comes up thin, it auto-escalates to a warm stealth-Chrome Google search to backfill (set browserFallback:false to disable).',
   {
     query: z.string().describe('The search query'),
     maxResults: z.number().default(10).describe('Maximum number of results to return'),
+    recency: z.enum(['day', 'week', 'month', 'year']).optional().describe('SERP-level recency filter — only return results from the last day/week/month/year. Use for "latest"/"today" queries.'),
+    browserFallback: z.boolean().default(true).describe('Allow auto-escalation to the warm stealth-Chrome Google fallback when the fast tier is thin'),
   },
   async (args) => {
-    const results = await search(args.query, { maxResults: args.maxResults });
+    // When the daemon is up, run the whole search there — its warm Google browser handles the fallback,
+    // so the MCP never launches a second headful Chrome for the fallback tier.
+    const results = await daemonUp()
+      ? await daemon.search(args.query, { maxResults: args.maxResults, recency: args.recency, browserFallback: args.browserFallback })
+      : await search(args.query, {
+          maxResults: args.maxResults,
+          freshness: args.recency,
+          fallback: args.browserFallback === false ? undefined : (q, max) => getGoogleBrowser().then((b) => b.googleSearch(q, max)),
+        });
 
     return {
       content: [{
@@ -185,35 +225,72 @@ const browserResult = (r: unknown) => ({ content: [{ type: 'text' as const, text
 
 server.tool('browser_open', 'Launch the persistent agent browser (dedicated clean profile, headless). Idempotent.',
   {},
-  async () => browserResult(await browser.open())
+  async () => browserResult(await daemonUp() ? { ok: true, note: 'using shared browser daemon' } : await browser.open())
 );
 server.tool('browser_goto', 'Navigate the agent browser to a URL.',
   { url: z.string().url().describe('URL to open'), waitFor: z.string().optional().describe('Optional CSS selector to wait for') },
-  async (args) => browserResult(await browser.goto(args.url, args.waitFor))
+  async (args) => browserResult(await daemonUp() ? await daemon.goto(args.url, args.waitFor) : await browser.goto(args.url, args.waitFor))
 );
 server.tool('browser_click', 'Click an element by CSS selector, or by visible text when byText=true. Refuses obvious financial/purchase actions.',
   { target: z.string().describe('CSS selector or visible text'), byText: z.boolean().default(false).describe('Treat target as visible text') },
-  async (args) => browserResult(await browser.click(args.target, args.byText))
+  async (args) => browserResult(await daemonUp() ? await daemon.click(args.target, args.byText) : await browser.click(args.target, args.byText))
 );
 server.tool('browser_type', 'Type text into a field by CSS selector. Refuses credential/payment fields (seed logins manually). Set submit=true to press Enter.',
   { selector: z.string().describe('CSS selector of the input'), text: z.string().describe('Text to type'), submit: z.boolean().default(false) },
-  async (args) => browserResult(await browser.type(args.selector, args.text, args.submit))
+  async (args) => browserResult(await daemonUp() ? await daemon.type(args.selector, args.text, args.submit) : await browser.type(args.selector, args.text, args.submit))
 );
 server.tool('browser_extract', 'Extract the current page as clean LLM-ready markdown (prefers article/main). Reports CAPTCHA detection.',
-  {}, async () => browserResult(await browser.extract())
+  {}, async () => browserResult(await daemonUp() ? await daemon.extract() : await browser.extract())
 );
 server.tool('browser_press', 'Press a keyboard key (e.g. Enter, Escape, PageDown).',
-  { key: z.string().describe('Key name') }, async (args) => browserResult(await browser.press(args.key))
+  { key: z.string().describe('Key name') }, async (args) => browserResult(await daemonUp() ? await daemon.press(args.key) : await browser.press(args.key))
 );
 server.tool('browser_scroll', 'Scroll the page to trigger lazy-loading.',
   { direction: z.enum(['down', 'up']).default('down'), amount: z.number().default(1) },
-  async (args) => browserResult(await browser.scroll(args.direction, args.amount))
+  async (args) => browserResult(await daemonUp() ? await daemon.scroll(args.direction, args.amount) : await browser.scroll(args.direction, args.amount))
 );
 server.tool('browser_screenshot', 'Save a screenshot of the current viewport to a file path.',
-  { path: z.string().describe('Absolute file path for the PNG') }, async (args) => browserResult(await browser.screenshot(args.path))
+  { path: z.string().describe('Absolute file path for the PNG') }, async (args) => browserResult(await daemonUp() ? await daemon.screenshot(args.path) : await browser.screenshot(args.path))
 );
 server.tool('browser_close', 'Close the agent browser session (profile + logins persist on disk).',
-  {}, async () => browserResult(await browser.close())
+  {}, async () => browserResult(await daemonUp() ? { ok: true, note: 'shared daemon stays warm; not closing' } : await browser.close())
+);
+
+// Parallel fetch — open many tabs at once (bounded pool), extract each to markdown. Per-domain rate
+// governing still applies, so tabs on different hosts run concurrent while same-host tabs stay polite.
+server.tool('browser_parallel_extract',
+  'Fetch AND extract many URLs in parallel (bounded tab pool), returning clean markdown for each. Much faster than looping browser_goto+browser_extract. Per-domain politeness still enforced. Use when you have a known list of URLs to read at once.',
+  {
+    urls: z.array(z.string().url()).min(1).max(50).describe('URLs to fetch and extract in parallel'),
+    concurrency: z.number().min(1).max(12).default(6).describe('Max tabs open at once'),
+    settleMs: z.number().min(0).max(15000).default(3000).describe('Post-load settle delay per page (ms)'),
+  },
+  async (args) => {
+    if (await daemonUp()) {
+      return browserResult(await daemon.parallelExtract(args.urls, { concurrency: args.concurrency, settleMs: args.settleMs }));
+    }
+    await browser.open();
+    const results = await browser.parallelExtract(args.urls, { concurrency: args.concurrency, settleMs: args.settleMs });
+    return browserResult(results.map((r) => ({
+      url: r.url, title: r.title, approxTokens: r.approxTokens,
+      captchaDetected: r.captchaDetected, publishDate: r.publishDate, markdown: r.markdown,
+    })));
+  }
+);
+server.tool('browser_parallel_screenshot',
+  'Screenshot many URLs in parallel (bounded tab pool). Each job is {url, path}; returns per-job ok/fail. Use for visual capture of a batch of pages at once.',
+  {
+    jobs: z.array(z.object({ url: z.string().url(), path: z.string() })).min(1).max(50).describe('{url, path} jobs'),
+    concurrency: z.number().min(1).max(12).default(6).describe('Max tabs open at once'),
+    settleMs: z.number().min(0).max(15000).default(6000).describe('Post-load settle delay per page (ms)'),
+  },
+  async (args) => {
+    if (await daemonUp()) {
+      return browserResult(await daemon.parallelScreenshot(args.jobs, { concurrency: args.concurrency, settleMs: args.settleMs }));
+    }
+    await browser.open();
+    return browserResult(await browser.parallelScreenshot(args.jobs, { concurrency: args.concurrency, settleMs: args.settleMs }));
+  }
 );
 
 server.tool('browse', 'Autonomous multi-hop research. Seeds from multi-engine search, navigates INTO real source articles (not just aggregator result pages), and FOLLOWS the most relevant links (priority queue, zero-token scoring) to real depth. Relevance gate kills topic drift; recency gate handles staleness. Returns assembled findings with relevance + publish dates. Bounded by maxPages for time/token cost. Use for "what happened / research X" instead of a single search.',
@@ -227,11 +304,14 @@ server.tool('browse', 'Autonomous multi-hop research. Seeds from multi-engine se
     recencyMode: z.enum(['soft', 'hard']).default('soft').describe('soft = down-weight stale; hard = drop stale pages'),
     seedUrls: z.array(z.string().url()).optional().describe('Explicit entry URLs to enter directly (bypasses search + the homepage/aggregator filter). Use when told to "go look at" specific pages — including company homepages.'),
   },
-  async (args) => browserResult(await browse(browser, args.query, {
-    maxPages: args.maxPages, maxSeeds: args.maxSeeds, maxDepth: args.maxDepth,
-    minRelevance: args.minRelevance, maxAgeDays: args.maxAgeDays, recencyMode: args.recencyMode,
-    seedUrls: args.seedUrls,
-  }))
+  async (args) => {
+    const opts = {
+      maxPages: args.maxPages, maxSeeds: args.maxSeeds, maxDepth: args.maxDepth,
+      minRelevance: args.minRelevance, maxAgeDays: args.maxAgeDays, recencyMode: args.recencyMode,
+      seedUrls: args.seedUrls,
+    };
+    return browserResult(await daemonUp() ? await daemon.browse(args.query, opts) : await browse(browser, args.query, opts));
+  }
 );
 
 server.tool('reach', 'Get ONE hard-to-reach URL by any legitimate means: direct render → stealth retry (headful real Chrome) → public Wayback/archive.today fallback. STOPS and returns needsHuman on a CAPTCHA or hard paid paywall — it never solves CAPTCHAs or bypasses payment. Returns the page content (markdown + publishDate) or a clear reason.',
@@ -239,7 +319,9 @@ server.tool('reach', 'Get ONE hard-to-reach URL by any legitimate means: direct 
     url: z.string().url().describe('The URL to reach'),
     allowArchive: z.boolean().default(true).describe('Allow public Wayback/archive.today/reader fallback'),
   },
-  async (args) => browserResult(await reach({ url: args.url, agentBrowser: browser, proxyManager, allowArchive: args.allowArchive }))
+  async (args) => browserResult(await daemonUp()
+    ? await daemon.reach(args.url, args.allowArchive)
+    : await reach({ url: args.url, agentBrowser: browser, proxyManager, allowArchive: args.allowArchive }))
 );
 
 server.tool('discover', 'Broad event DISCOVERY across ALL categories (vs browse\'s narrow query research). Reads the Wikipedia Current Events Portal day-by-day over a window and buckets every notable event by category — Armed conflicts, Business, Disasters, Politics, Science, Sports, etc. Use for "what happened in the last N days / everything recent" — it surfaces categories you did NOT think to ask about (sports, disasters, obituaries…). Zero model tokens.',
@@ -273,13 +355,21 @@ server.tool('watchlist', 'View or replace the tracking watchlist. Pass entities 
 server.tool('search_google', 'High-quality search via Google\'s real index — finds LinkedIn, specific people, and pages the default web_search (Bing/DuckDuckGo/Mojeek) misses or buries. Bypasses Google\'s bot-wall with a headful stealth browser (opens a brief real Chrome window, slower). Use when you need Google-grade results, especially finding a specific person/profile.',
   { query: z.string().describe('Search query'), maxResults: z.number().default(10) },
   async (args) => {
-    // Persistent profile under $HOME by default (survives an unmounted external drive; override with
-    // VORTEX_TRACKER_DIR). Log into Google ONCE here (headful) and the session sticks —
-    // logged-in Google rarely rate-limits at personal volume. Free, no API. Self-paces + backs off.
-    const trackerDir = process.env.VORTEX_TRACKER_DIR || `${process.env.HOME}/.vortex-tracker`;
-    const gb = new AgentBrowser({ reachProfile: 'natural', headless: false, channel: 'chrome', profileDir: `${trackerDir}/google-profile` });
-    try { await gb.open(); return browserResult({ query: args.query, engine: 'google', results: await gb.googleSearch(args.query, args.maxResults) }); }
-    finally { await gb.close(); }
+    // Reuse the warm singleton (shared persistent profile under $HOME by default; override with
+    // VORTEX_TRACKER_DIR). Log into Google ONCE here (headful) and the session sticks — logged-in Google
+    // rarely rate-limits at personal volume. Free, no API. Self-paces + backs off. Kept warm, not closed.
+    if (await daemonUp()) return browserResult(await daemon.google(args.query, args.maxResults));
+    const gb = await getGoogleBrowser();
+    return browserResult({ query: args.query, engine: 'google', results: await gb.googleSearch(args.query, args.maxResults) });
+  }
+);
+
+server.tool('ocr_url', 'OCR an image or PDF URL with Apple Vision (on-device, free, no GPU — macOS only). Extracts text from scanned PDFs, infographics, charts, and image-only documents that normal scraping returns empty for. For the asset itself (a .pdf/.png/.jpg URL), NOT for HTML pages.',
+  { url: z.string().url().describe('Direct URL to a PDF or image (png/jpg/tiff/webp/heic)') },
+  async (args) => {
+    if (!(await ocrAvailable())) return browserResult({ ok: false, error: 'OCR unavailable (needs macOS + swiftc)' });
+    try { return browserResult({ ok: true, ...(await ocrUrl(args.url)) }); }
+    catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) || 'ocr failed' }); }
   }
 );
 

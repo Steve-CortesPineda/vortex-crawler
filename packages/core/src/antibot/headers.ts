@@ -12,24 +12,38 @@ const ACCEPT_LANGUAGE = [
   'en-GB,en;q=0.9,en-US;q=0.8',
 ];
 
-let uaIndex = 0;
+/** Stable 32-bit hash of a string — used to pin an identity to a hostname deterministically. */
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
 
+/**
+ * Per-domain STICKY headers. A given host always sees the same User-Agent + Accept-Language for the
+ * life of the process (identity derived from a hostname hash), instead of the old global round-robin
+ * that flipped the UA between consecutive hits to the same site — which reads as a bot, not a human.
+ * Different hosts still get different identities, spreading the footprint across the pool.
+ */
 export function generateHeaders(url: string): Record<string, string> {
-  const ua = USER_AGENTS[uaIndex % USER_AGENTS.length];
-  uaIndex++;
-
+  let host = '';
   let origin: string;
   try {
     const parsed = new URL(url);
+    host = parsed.hostname;
     origin = parsed.origin;
   } catch {
     origin = '';
   }
 
+  const seed = host ? hashStr(host) : Math.floor(Math.random() * 1e9);
+  const ua = USER_AGENTS[seed % USER_AGENTS.length];
+  const acceptLang = ACCEPT_LANGUAGE[(seed >> 8) % ACCEPT_LANGUAGE.length];
+
   return {
     'User-Agent': ua,
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Accept-Language': ACCEPT_LANGUAGE[Math.floor(Math.random() * ACCEPT_LANGUAGE.length)],
+    'Accept-Language': acceptLang,
     'Accept-Encoding': 'gzip, deflate, br',
     'DNT': '1',
     'Connection': 'keep-alive',

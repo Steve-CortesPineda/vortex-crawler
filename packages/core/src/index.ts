@@ -19,7 +19,7 @@ export { MetadataExtractor } from './processor/metadata-extractor.js';
 
 // Pipeline
 export { PriorityURLQueue } from './pipeline/queue.js';
-export { PerDomainRateLimiter } from './pipeline/rate-limiter.js';
+export { PerDomainRateLimiter, DomainGovernor, sharedGovernor, type GovernorOptions } from './pipeline/rate-limiter.js';
 export { ContentDeduplicator } from './pipeline/dedup.js';
 
 // Cache
@@ -30,8 +30,12 @@ export { PluginManager } from './plugin/plugin-manager.js';
 export type { VortexPlugin } from './plugin/types.js';
 
 // Search
-export { search } from './search.js';
-export type { SearchResult, SearchResponse } from './search.js';
+export { search, proxiesConfigured } from './search.js';
+export type { SearchResult, SearchResponse, SearchEngine, Freshness, EngineReport, EngineStatus } from './search.js';
+
+// Browser daemon client
+export { VortexDaemonClient } from './daemon-client.js';
+export type { DaemonClientOptions, DaemonExtract } from './daemon-client.js';
 
 // Agent browser
 export { AgentBrowser } from './agent-browser.js';
@@ -40,6 +44,10 @@ export { ProxyManager } from './antibot/proxy-manager.js';
 export { buildLaunchPlan, loadEngine } from './antibot/stealth-launch.js';
 export type { ReachProfile, BrowserEngine, LaunchPlan } from './antibot/stealth-launch.js';
 export { ReadabilityExtractor } from './processor/readability-extractor.js';
+
+// OCR (Apple Vision — on-device, free, macOS)
+export { ocrAvailable, ocrFile, ocrUrl, looksOcrable } from './ocr/vision.js';
+export type { OcrUrlResult } from './ocr/vision.js';
 
 // Reach (fallback ladder)
 export { reach, classifyPage } from './reach.js';

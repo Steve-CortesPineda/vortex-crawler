@@ -62,7 +62,10 @@ export class VortexCrawler extends EventEmitter {
     this.chunker = new Chunker();
     this.cache = new CacheManager(this.config.cache);
     this.plugins = new PluginManager();
-    this.rateLimiter = new PerDomainRateLimiter(this.config.rateLimit.requestsPerSecond);
+    // No-arg → shares the process-wide governor, so single scrapes, the browse loop, and parallel
+    // tab extraction all honor the SAME per-domain spacing + adaptive cooldown (parallel callers
+    // can't collectively out-run a host's rate limit).
+    this.rateLimiter = new PerDomainRateLimiter();
   }
 
   /** Register a plugin */
@@ -96,6 +99,8 @@ export class VortexCrawler extends EventEmitter {
 
     // Fetch
     const fetchResult = await this.fetcher.fetch(request);
+    // Feed the status back to the governor so a 429/503/403 from any tier widens this domain's cooldown.
+    this.rateLimiter.noteResponse(url, fetchResult.statusCode, fetchResult.headers);
     const afterFetch = await this.plugins.runAfterFetch(fetchResult, request);
 
     // Plugin: beforeProcess

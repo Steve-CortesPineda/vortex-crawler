@@ -8,6 +8,13 @@ import {
 } from './antibot/stealth-launch.js';
 import { generateFingerprint, attachFingerprint, type SyntheticFingerprint } from './antibot/fingerprint.js';
 import type { ProxyManager } from './antibot/proxy-manager.js';
+import { sharedGovernor } from './pipeline/rate-limiter.js';
+
+/** Pull the HTTP status off a Playwright navigation Response (null on data:/about: or failed nav). */
+function navStatus(resp: unknown): number | null {
+  try { return resp && typeof (resp as any).status === 'function' ? (resp as any).status() : null; }
+  catch { return null; }
+}
 
 /** First human-readable or ISO date found in text — last-resort publish-date signal. */
 const DATE_RE = /(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+20\d\d|20\d\d-\d\d-\d\d/i;
@@ -85,7 +92,7 @@ export interface ExtractResult {
   /** Best-effort publish date (og/JSON-LD → Readability → first date in prose). */
   publishDate?: string;
   /** Which extractor produced the markdown — useful for debugging quality. */
-  extractedVia?: 'readability' | 'cleaner';
+  extractedVia?: 'readability' | 'cleaner' | 'ocr';
 }
 
 export class AgentBrowser {
@@ -183,6 +190,28 @@ export class AgentBrowser {
     if (!this.page) throw new Error('Browser not open — call open() first.');
   }
 
+  /**
+   * Adaptive settle: wait until the page's visible text stops growing (two consecutive stable
+   * samples @250ms), capped at `capMs`. Replaces fixed sleeps/networkidle waits — a static article
+   * settles in ~500ms instead of burning the full cap, while a lazy-loading SPA still gets its time.
+   */
+  private async settleContent(page: any, capMs: number): Promise<void> {
+    const deadline = Date.now() + capMs;
+    let last = -1;
+    let stable = 0;
+    while (Date.now() < deadline) {
+      let len = 0;
+      try { len = await page.evaluate(() => document.body?.innerText.length || 0); } catch { return; }
+      if (len === last && len > 0) {
+        if (++stable >= 2) return;
+      } else {
+        stable = 0;
+      }
+      last = len;
+      await page.waitForTimeout(250).catch(() => {});
+    }
+  }
+
   private async state(note?: string): Promise<ActResult> {
     if (!this.page) return { ok: false, url: '', title: '', note: note || 'closed' };
     let title = '';
@@ -192,12 +221,17 @@ export class AgentBrowser {
 
   async goto(url: string, waitForSelector?: string): Promise<ActResult> {
     this.ensure();
-    await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Per-domain politeness + adaptive backoff, shared across every caller in the process.
+    await sharedGovernor.throttle(url);
+    const resp = await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const status = navStatus(resp);
+    if (status != null) sharedGovernor.noteResponse(url, status);
     if (waitForSelector) {
       try { await this.page.waitForSelector(waitForSelector, { timeout: 10000 }); } catch { /* soft */ }
     } else {
-      // Short settle, not a full networkidle wait — heavy sites never go idle and cost 6-8s otherwise.
-      try { await this.page.waitForLoadState('networkidle', { timeout: 2500 }); } catch { /* soft */ }
+      // Content-stability settle, not networkidle — heavy sites never go idle and cost 6-8s otherwise,
+      // while static pages settle in ~500ms instead of waiting out a fixed timeout.
+      await this.settleContent(this.page, 2500);
     }
     return this.state('navigated');
   }
@@ -314,9 +348,14 @@ export class AgentBrowser {
     return mapPool(urls, opts?.concurrency ?? 6, async (url) => {
       const page = await this.context.newPage();
       try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        try { await page.waitForLoadState('networkidle', { timeout: 2500 }); } catch { /* soft */ }
-        if (settle) await page.waitForTimeout(settle).catch(() => {});
+        // Governor spacing is per-DOMAIN, so parallel tabs on DIFFERENT hosts still run fully concurrent;
+        // multiple tabs targeting the SAME host serialize politely instead of stampeding it.
+        await sharedGovernor.throttle(url);
+        const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        const status = navStatus(resp);
+        if (status != null) sharedGovernor.noteResponse(url, status);
+        // Adaptive: `settle` is now a CAP, not a fixed sleep — static pages exit in ~500ms.
+        if (settle) await this.settleContent(page, settle);
         return await this.extractFromPage(page);
       } catch {
         return { url, title: '', markdown: '', approxTokens: 0, captchaDetected: false, extractedVia: 'cleaner' as const };

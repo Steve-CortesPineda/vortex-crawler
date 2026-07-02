@@ -1,5 +1,9 @@
+import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { AgentBrowser, type ExtractResult } from './agent-browser.js';
 import type { ProxyManager } from './antibot/proxy-manager.js';
+import { ocrAvailable, ocrUrl, ocrFile, looksOcrable } from './ocr/vision.js';
 
 /**
  * reach() — "get me this page by any LEGITIMATE means, or tell me a human is needed."
@@ -12,7 +16,7 @@ import type { ProxyManager } from './antibot/proxy-manager.js';
  * via a public mirror (Wayback/archive.today) — reading a public snapshot is not evading the live wall.
  */
 
-export type ReachStrategy = 'direct' | 'stealth-retry' | 'logged-in' | 'wayback' | 'archive-today' | 'reader';
+export type ReachStrategy = 'direct' | 'stealth-retry' | 'logged-in' | 'wayback' | 'archive-today' | 'reader' | 'ocr';
 export type PageClass = 'good' | 'captcha' | 'paywall-soft' | 'paywall-hard' | 'blocked' | 'thin';
 
 export type ReachOutcome =
@@ -31,7 +35,7 @@ export interface ReachOptions {
 
 const BLOCK_RE = /verify you are human|attention required|cloudflare|access denied|request blocked|enable javascript|unusual traffic|just a moment|checking your browser/i;
 const PAYWALL_RE = /subscribe to (read|continue)|already a subscriber|metered|this article is for subscribers|to continue reading|create a free account to|sign in to read/i;
-const DEFAULT_LADDER: ReachStrategy[] = ['direct', 'stealth-retry', 'logged-in', 'wayback', 'archive-today', 'reader'];
+const DEFAULT_LADDER: ReachStrategy[] = ['direct', 'stealth-retry', 'logged-in', 'wayback', 'archive-today', 'reader', 'ocr'];
 
 function prose(ex: ExtractResult): string {
   return ex.markdown.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
@@ -86,6 +90,21 @@ export async function reach(opts: ReachOptions): Promise<ReachOutcome> {
   const cleanup = async () => { if (stealthBrowser) { try { await stealthBrowser.close(); } catch { /* */ } } };
 
   try {
+    // Asset fast-path: a PDF/image URL has no HTML to recover — go straight to OCR (free, on-device)
+    // instead of wasting the wayback/archive/reader rungs on a binary. macOS only; skipped otherwise.
+    if (ladder.includes('ocr') && looksOcrable(opts.url) && (await ocrAvailable())) {
+      tried.push('ocr');
+      try {
+        const { text } = await ocrUrl(opts.url);
+        if (text && text.length >= minProse) {
+          return {
+            ok: true, via: 'ocr', url: opts.url, tried,
+            result: { url: opts.url, title: '', markdown: text, approxTokens: Math.round(text.length / 4), captchaDetected: false, extractedVia: 'ocr' },
+          };
+        }
+      } catch { /* fall through to the normal ladder */ }
+    }
+
     for (const strategy of ladder) {
       let ex: ExtractResult | null = null;
 
@@ -122,6 +141,24 @@ export async function reach(opts: ReachOptions): Promise<ReachOutcome> {
           tried.push(strategy);
           ex = await fetchReader(opts.url);
           break;
+        case 'ocr': {
+          // Last resort for a thin/image-only HTML page: screenshot what rendered and OCR the pixels.
+          // (Asset PDFs/images are handled by the fast-path above.) macOS only.
+          if (looksOcrable(opts.url) || !(await ocrAvailable())) continue;
+          tried.push(strategy);
+          const shot = path.join(os.tmpdir(), `vortex-reach-ocr-${process.pid}-${Date.now()}.png`);
+          try {
+            await opts.agentBrowser.goto(opts.url);
+            await opts.agentBrowser.scroll('down', 1);
+            await opts.agentBrowser.screenshot(shot);
+            const text = await ocrFile(shot);
+            if (text && text.length >= minProse) {
+              ex = { url: opts.url, title: '', markdown: text, approxTokens: Math.round(text.length / 4), captchaDetected: false, extractedVia: 'ocr' };
+            }
+          } catch { /* ocr failed → ladder ends */ }
+          finally { await fs.unlink(shot).catch(() => {}); }
+          break;
+        }
       }
 
       if (!ex) continue;
