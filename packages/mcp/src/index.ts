@@ -3,7 +3,16 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager, ocrUrl, ocrAvailable, VortexDaemonClient } from '@stevecortesp/vortex-core';
 
-const crawler = new VortexCrawler();
+// Cookie-fetch tier for scrape/crawl: route raw HTML through the daemon's logged-in VANTA session when
+// the daemon is up (no-render, real cookies). Throws when the daemon is down → adaptive-fetcher falls
+// through to its normal http/jsdom/browser ladder. Inert with no daemon.
+const cookieFetcher = {
+  async httpFetch(url: string, opts?: { timeoutMs?: number }) {
+    if (!(await daemonUp())) throw new Error('daemon down');
+    return daemon.call<{ status: number; finalUrl: string; headers: Record<string, string>; body: string }>('/fetch', { url, timeoutMs: opts?.timeoutMs });
+  },
+};
+const crawler = new VortexCrawler(undefined, cookieFetcher);
 // Proxies (optional) come from VORTEX_PROXIES="http://a:b@host:port,http://..." — consulted by stealth/rotating.
 const proxyManager = new ProxyManager((process.env.VORTEX_PROXIES || '').split(',').map((s) => s.trim()).filter(Boolean));
 const browser = new AgentBrowser({ proxyManager });
@@ -191,18 +200,20 @@ server.tool(
 // ─── Tool: web_search ────────────────────────────────
 server.tool(
   'web_search',
-  'Multi-engine web search (Brave + Startpage + Bing + Mojeek) fused via relevance-blended reciprocal-rank, with a per-engine circuit breaker (bot-walled engines are skipped while cooling down) and syndication dedupe (MSN/Yahoo copies collapse into the original article). No API key. Returns titles, URLs, snippets, the engines that found each result, a blended score, and a per-engine health report (engineReports). Hybrid: if the fast fetch tier comes up thin, it auto-escalates to a warm stealth-Chrome Google search to backfill (set browserFallback:false to disable).',
+  'Multi-engine web search (Brave + Startpage + Bing + Mojeek) fused via relevance-blended reciprocal-rank, with a per-engine circuit breaker (bot-walled engines are skipped while cooling down) and syndication dedupe (MSN/Yahoo copies collapse into the original article). When the VANTA browser is connected, your logged-in google-session is fused in as a first-class engine — so results stay strong even when the fetch engines are walled. No API key. Returns titles, URLs, snippets, the engines that found each result, a blended score, and a per-engine health report (engineReports). Hybrid: if the fast tier is still thin, it auto-escalates to a warm stealth-Chrome Google search to backfill (set browserFallback:false to disable).',
   {
     query: z.string().describe('The search query'),
     maxResults: z.number().default(10).describe('Maximum number of results to return'),
     recency: z.enum(['day', 'week', 'month', 'year']).optional().describe('SERP-level recency filter — only return results from the last day/week/month/year. Use for "latest"/"today" queries.'),
     browserFallback: z.boolean().default(true).describe('Allow auto-escalation to the warm stealth-Chrome Google fallback when the fast tier is thin'),
+    rerankTop: z.number().min(1).max(8).default(4).describe('When the daemon is available, content-rerank only this many top results synchronously for speed'),
+    youtube: z.boolean().default(true).describe('Route YouTube/latest-video queries through the YouTube vertical path when the daemon is available'),
   },
   async (args) => {
     // When the daemon is up, run the whole search there — its warm Google browser handles the fallback,
     // so the MCP never launches a second headful Chrome for the fallback tier.
     const results = await daemonUp()
-      ? await daemon.search(args.query, { maxResults: args.maxResults, recency: args.recency, browserFallback: args.browserFallback })
+      ? await daemon.search(args.query, { maxResults: args.maxResults, recency: args.recency, browserFallback: args.browserFallback, rerankTop: args.rerankTop, youtube: args.youtube })
       : await search(args.query, {
           maxResults: args.maxResults,
           freshness: args.recency,
@@ -370,6 +381,127 @@ server.tool('ocr_url', 'OCR an image or PDF URL with Apple Vision (on-device, fr
     if (!(await ocrAvailable())) return browserResult({ ok: false, error: 'OCR unavailable (needs macOS + swiftc)' });
     try { return browserResult({ ok: true, ...(await ocrUrl(args.url)) }); }
     catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) || 'ocr failed' }); }
+  }
+);
+
+// ─── VANTA extension-backed tools (require the browser daemon + connected extension) ───
+server.tool('web_fetch',
+  'Fetch ONE URL through the logged-in VANTA Chrome session and return clean markdown — cookie-authenticated, NO browser render (fast, ~100-400ms). Use for pages behind your logins or soft paywalls, or when you just need the article body quickly. Requires the VANTA browser daemon + extension; errors clearly if not connected.',
+  { url: z.string().url().describe('The URL to fetch') },
+  async (args) => { try { return browserResult(await daemon.call('/fetch_extract', { url: args.url })); } catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) }); } }
+);
+
+server.tool('research',
+  'Autonomous PARALLEL research TREE. From one question it seeds roots (google-session-fused search), fetches each level concurrently, scores every page for relevance, and DIVES DEEPER only into strongly-relevant branches while pruning dead ends — adaptive depth, not a fixed crawl. Returns a tree of nodes with per-node relevance and why-expanded/why-pruned. Use for multi-hop "understand X deeply" questions. Requires the VANTA browser daemon + extension.',
+  {
+    query: z.string().describe('The research question'),
+    maxPages: z.number().default(20).describe('Total pages visited (budget). Default 20.'),
+    maxDepth: z.number().default(3).describe('Deepest tree level. Default 3.'),
+    poolWidth: z.number().default(6).describe('Pages fetched concurrently per level. Default 6.'),
+    maxSeeds: z.number().default(4).describe('Root pages seeded from search. Default 4.'),
+    expandThreshold: z.number().optional().describe('Relevance (0..1) at/above which a node dives deeper. Default 0.30.'),
+    minRelevance: z.number().optional().describe('Below this a fetched page is pruned as off-topic. Default 0.15.'),
+    maxAgeDays: z.number().optional().describe('Optional recency gate (soft down-weight; undated kept).'),
+  },
+  async (args) => { try { return browserResult(await daemon.call('/research', args)); } catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) }); } }
+);
+
+server.tool('session_search',
+  'Search a LOGGED-IN walled garden (reddit, x/twitter, linkedin) using your VANTA session. Returns `results` (clickable content links, best on reddit) AND `visibleText` — a DOM-proof screenshot+OCR read of the results page (auto for x/linkedin, whose markup resists scraping). Use `visibleText` to "look up what people are saying"; use `results` when you need links to web_fetch. Requires the VANTA daemon + being logged into that site in the profile.',
+  {
+    site: z.enum(['reddit', 'x', 'twitter', 'linkedin']).describe('Which logged-in site to search'),
+    query: z.string().describe('Search query'),
+    maxResults: z.number().default(10).describe('Max link results'),
+    visual: z.boolean().optional().describe('Force (true) or skip (false) the screenshot+OCR read. Default: on for x/linkedin.'),
+    scrolls: z.number().optional().describe('How many viewports to scroll+OCR (default 4). More = more content, slower.'),
+  },
+  async (args) => { try { return browserResult(await daemon.call('/session_search', args)); } catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) }); } }
+);
+
+server.tool('read_visual',
+  'DOM-proof VISUAL reader: render a URL in your logged-in VANTA session, scroll while screenshotting, and OCR the pixels (Apple Vision) to return the on-screen TEXT. Use for anti-scraping SPAs, canvas/image-based pages, or anything where normal extraction returns empty — it reads what a human would see. Note: returns visible text, NOT the links behind it. macOS-only. Requires the VANTA daemon.',
+  {
+    url: z.string().url().describe('The URL to visually read'),
+    scrolls: z.number().default(3).describe('Viewports to scroll+OCR (1-8). Default 3.'),
+  },
+  async (args) => { try { return browserResult(await daemon.call('/read_visual', args)); } catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) }); } }
+);
+
+server.tool('vanta_stats',
+  'Health of the VANTA browser bridge: whether the extension is connected, the logged-in profile, and the parallel tab-pool occupancy. Use to check if the real-Chrome backend is available before relying on web_fetch/research.',
+  {},
+  async () => { try { return browserResult(await daemon.call('/stats', {})); } catch (e) { return browserResult({ ok: false, connected: false, error: (e as Error)?.message?.slice(0, 200) }); } }
+);
+
+// ─── VANTA Control: desktop eyes+hands (AX-first) ────────────────────────────
+// Bridges the vanta-control executor (Projects/vanta-control) into the same MCP
+// surface as the web tools: Vortex = web arm, these = desktop arm. Degrades to a
+// clear error when the binary is missing. Outward actions (send/publish/pay/
+// delete) are never allowed — draft-by-default is enforced by the caller rules.
+const VANTA_AX = process.env.VANTA_AX_BIN || '/Volumes/AVANTI/Projects/vanta-control/bin/vanta-ax';
+async function axCall(argv: string[]): Promise<string> {
+  const { execFile } = await import('node:child_process');
+  return new Promise((resolve) => {
+    execFile(VANTA_AX, argv, { timeout: 20_000 }, (err, stdout, stderr) => {
+      if (err) resolve(JSON.stringify({ ok: false, error: (stderr || err.message).trim().slice(0, 400) }));
+      else resolve(stdout.trim());
+    });
+  });
+}
+const axResult = (text: string) => ({ content: [{ type: 'text' as const, text }] });
+
+server.tool('desktop_read_ui',
+  'Read the macOS accessibility tree of a native app (semantic perception: numbered elements with role/title/value/frame/actions, 30-250ms, zero image tokens). The desktop counterpart of web_fetch — use for native apps (Notes, Mail, Finder, Calendar, any non-browser UI). Element ids are only valid until the next action; for button sequences use desktop_act press with `find`.',
+  {
+    app: z.string().optional().describe('App name or bundle id; omit for frontmost'),
+    max: z.number().default(400).describe('Element cap (big trees like Notes/Xcode are slow — keep low)'),
+  },
+  async (args) => {
+    const argv = ['dump', '--max', String(args.max ?? 400)];
+    if (args.app) argv.push('--app', args.app);
+    return axResult(await axCall(argv));
+  }
+);
+
+server.tool('desktop_act',
+  'Act on a native macOS app via accessibility identity (AXPress/AXValue; CGEvent fallback). verbs: press (use find=visible label — robust; or id from last read_ui), setvalue (id+text, no focus steal, verified), focus (id), type (text into focus), key (combo e.g. cmd+n), click (x,y last resort), open (app). NEVER use for outward actions (sending/publishing/deleting) — draft only.',
+  {
+    verb: z.enum(['press', 'setvalue', 'focus', 'type', 'key', 'click', 'open']).describe('Action verb'),
+    find: z.string().optional().describe('press: visible label to content-match (preferred)'),
+    role: z.string().optional().describe('press+find: narrow by AX role, e.g. AXButton'),
+    app: z.string().optional().describe('press+find / open: target app'),
+    id: z.number().optional().describe('press/setvalue/focus: element id from last desktop_read_ui'),
+    text: z.string().optional().describe('setvalue/type: the text'),
+    combo: z.string().optional().describe('key: e.g. cmd+s, cmd+shift+n, return'),
+    x: z.number().optional(), y: z.number().optional(),
+  },
+  async (a) => {
+    const argv = ['act', a.verb === 'open' ? 'open' : a.verb];
+    if (a.verb === 'press') {
+      if (a.find) { argv.push('--find', a.find); if (a.role) argv.push('--role', a.role); if (a.app) argv.push('--app', a.app); }
+      else if (a.id !== undefined) argv.push('--id', String(a.id));
+      else return axResult(JSON.stringify({ ok: false, error: 'press needs find or id' }));
+    }
+    if (a.verb === 'setvalue') { argv.push('--id', String(a.id), '--text', a.text ?? ''); }
+    if (a.verb === 'focus') argv.push('--id', String(a.id));
+    if (a.verb === 'type') argv.push('--text', a.text ?? '');
+    if (a.verb === 'key') argv.push('--combo', a.combo ?? '');
+    if (a.verb === 'click') argv.push('--x', String(a.x), '--y', String(a.y));
+    if (a.verb === 'open') argv.push('--app', a.app ?? '');
+    return axResult(await axCall(argv));
+  }
+);
+
+server.tool('desktop_screenshot',
+  'Screenshot the screen (or frontmost window) to a PNG path — the vision FALLBACK for pixel-only/AX-dark UI. Prefer desktop_read_ui. Returns the file path; read it with your file tools.',
+  {
+    window: z.boolean().optional().describe('Frontmost window only'),
+    out: z.string().optional().describe('Output path, default /tmp/vanta-screen.png'),
+  },
+  async (a) => {
+    const argv = ['screenshot', '--out', a.out || '/tmp/vanta-screen.png'];
+    if (a.window) argv.push('--window');
+    return axResult(await axCall(argv));
   }
 );
 
