@@ -1,0 +1,348 @@
+{
+  "generatedAt": "2026-07-09T04:10:00-06:00",
+  "note": "Agent-driven run: every fetch/search/extract executed through Vortex (daemon :4477 — fused web_search w/ google-session, reach ladder, parallel cookie-fetch extract, read_visual OCR, InnerTube+RSS YouTube vertical) plus local shell probes. Quotes are verbatim from extracted page text.",
+  "answers": {
+    "fed-aml-official-dossier": {
+      "caseId": "fed-aml-official-dossier",
+      "answer": "The official proposal is the Federal Reserve Board's July 7, 2026 request for comment to amend its anti-money laundering (AML/CFT) program requirements for banks (press release bcreg20260707a), aligning with parallel proposals by four other agencies and requiring risk-based AML programs incorporating FinCEN's AML/CFT priorities. It was published in the Federal Register on July 9, 2026 as 'Anti-Money Laundering and Countering the Financing of Terrorism Programs' (Docket No. R-1835, document 2026-13919). Comments must be submitted on or before September 8, 2026 (60 days after publication).",
+      "confidence": 0.93,
+      "data": {
+        "title": "Anti-Money Laundering and Countering the Financing of Terrorism Programs (Federal Reserve System proposed rule; Docket No. R-1835)",
+        "announcementDate": "2026-07-07",
+        "commentDeadline": "2026-09-08",
+        "affectedRule": "Federal Reserve AML/CFT program requirements for banks (Regulation implementing BSA program rules; aligns with FinCEN and four-agency proposals; AML Act of 2020)",
+        "pressReleaseUrl": "https://www.federalreserve.gov/newsevents/pressreleases/bcreg20260707a.htm",
+        "proposalUrl": "https://www.govinfo.gov/content/pkg/FR-2026-07-09/pdf/2026-13919.pdf",
+        "federalRegisterUrl": "https://www.federalregister.gov/documents/2026/07/09/2026-13919/anti-money-laundering-and-countering-the-financing-of-terrorism-programs"
+      },
+      "actions": [
+        { "type": "daemon_search", "query": "Federal Reserve anti-money laundering proposal July 2026 comment deadline Federal Register", "note": "vortex fused search (google-session + bing), official sources ranked top with sourceQuality 1.0" },
+        { "type": "parallel_extract", "urls": ["https://www.federalreserve.gov/newsevents/pressreleases/bcreg20260707a.htm", "https://www.federalregister.gov/documents/2026/07/09/2026-13919/anti-money-laundering-and-countering-the-financing-of-terrorism-programs"] },
+        { "type": "api_fetch", "url": "https://www.federalregister.gov/api/v1/documents/2026-13919.json", "note": "authoritative dates/docket metadata" }
+      ],
+      "citations": [
+        {
+          "title": "Federal Reserve Board requests comment on a proposal to amend its requirements for banks to maintain anti-money laundering programs",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/bcreg20260707a.htm",
+          "quote": "The Federal Reserve Board on Tuesday requested comment on a proposal to amend its requirements for banks to maintain anti-money laundering programs. The amendments are intended to align with changes to anti-money laundering program requirements separately proposed by four other agencies."
+        },
+        {
+          "title": "Federal Reserve press release — comment period",
+          "url": "https://www.federalreserve.gov/newsevents/pressreleases/bcreg20260707a.htm",
+          "quote": "Among other changes, the proposal would require banks to focus their anti-money laundering resources based on risk, with more attention given to higher-risk customers and activities."
+        },
+        {
+          "title": "Anti-Money Laundering and Countering the Financing of Terrorism Programs — Federal Register (2026-13919)",
+          "url": "https://www.federalregister.gov/documents/2026/07/09/2026-13919/anti-money-laundering-and-countering-the-financing-of-terrorism-programs",
+          "quote": "Comments must be submitted on or before September 8, 2026."
+        },
+        {
+          "title": "Federal Register proposed rule text (program terminology)",
+          "url": "https://www.federalregister.gov/documents/2026/07/09/2026-13919/anti-money-laundering-and-countering-the-financing-of-terrorism-programs",
+          "quote": "In Section IV.A., the Board describes the express incorporation of the countering the financing of terrorism (CFT) requirements as part of a bank's anti-money laundering (AML) program requirements."
+        }
+      ]
+    },
+    "nvidia-delay-truth-reconciliation": {
+      "caseId": "nvidia-delay-truth-reconciliation",
+      "answer": "Status: unresolved (claim vs corporate denial). The original claim comes from research firm SemiAnalysis (X post + report, July 5-6, 2026): NVIDIA's Kyber NVL144 rack-scale system for Rubin Ultra slipped from 2027 to 2028 because the PCB midplane — a key circuit board — remains hard to manufacture, with the larger NVL576 also likely delayed. CNBC independently reported the claim with SemiAnalysis's exact language. NVIDIA responded through a spokesperson denying the report: 'Our roadmap remains intact.' No primary evidence (earnings call, nvidianews release, supplier confirmation) has yet settled which is true, so the honest verdict is unresolved: a credible, specific analyst claim against a flat but unspecific corporate denial. Nvidia delay coverage from low-trust aggregators (AOL/MSN syndication) was excluded.",
+      "confidence": 0.74,
+      "data": {
+        "status": "unresolved",
+        "claimSource": "SemiAnalysis (research firm) — X post and report, July 5-6, 2026",
+        "bestEvidenceUrl": "https://www.cnbc.com/2026/07/06/nvidia-kyber-rack-system-delays-manufacturing-taiwan-rubin-chips-.html",
+        "evidenceFor": "SemiAnalysis's specific manufacturing detail (PCB midplane manufacturability, NVL576 also affected); Asian PCB supplier stocks sold off July 6; CNBC and other outlets corroborated the report's contents",
+        "evidenceAgainst": "NVIDIA spokesperson flatly denied the report ('Our roadmap remains intact'); no supplier or primary-source confirmation of the 2028 slip; NVDA shares recovered after the denial"
+      },
+      "actions": [
+        { "type": "daemon_search", "query": "Nvidia AI chip delay circuit board problem official response July 2026" },
+        { "type": "read_visual", "url": "https://www.cnbc.com/2026/07/06/nvidia-kyber-rack-system-delays-manufacturing-taiwan-rubin-chips-.html", "note": "CNBC bot-walled plain fetch (reach stopped at CAPTCHA); Vortex read_visual rendered it in the logged-in session and OCR'd the article text" }
+      ],
+      "citations": [
+        {
+          "title": "Nvidia's next-gen AI rack system delayed to 2028 on manufacturing snags, SemiAnalysis says (CNBC)",
+          "url": "https://www.cnbc.com/2026/07/06/nvidia-kyber-rack-system-delays-manufacturing-taiwan-rubin-chips-.html",
+          "quote": "Kyber NVL144 rack architecture has been delayed to 2028 as the PCB midplane remains challenging from a manufacturability standpoint"
+        },
+        {
+          "title": "CNBC — source of the setback",
+          "url": "https://www.cnbc.com/2026/07/06/nvidia-kyber-rack-system-delays-manufacturing-taiwan-rubin-chips-.html",
+          "quote": "The setback stems from difficulties manufacturing a key circuit board at the heart of the system, SemiAnalysis said in a post on Monday."
+        },
+        {
+          "title": "CNBC — NVL576 also affected",
+          "url": "https://www.cnbc.com/2026/07/06/nvidia-kyber-rack-system-delays-manufacturing-taiwan-rubin-chips-.html",
+          "quote": "NVL576 — a larger system linking eight racks via optical connections — is also likely delayed or limited to small volumes, the research firm said."
+        },
+        {
+          "title": "SemiAnalysis original claim (X post)",
+          "url": "https://x.com/SemiAnalysis_/status/2073874671498387899",
+          "quote": "MASSIVE DELAY: Just 3 months after Jensen demoed Kyber NVL144 at GTC, it has faced major setbacks and has been delayed by more"
+        },
+        {
+          "title": "Nvidia denies report its next-generation AI server faces delays, says roadmap is intact (Yahoo Finance)",
+          "url": "https://finance.yahoo.com/technology/article/nvidia-denies-report-its-next-generation-ai-server-faces-delays-says-roadmap-is-intact-183310296.html",
+          "quote": "But an Nvidia spokesperson denied the SemiAnalysis report, telling Yahoo Finance, \"Our roadmap remains intact.\""
+        }
+      ]
+    },
+    "stripe-webhook-secret-rotation-runbook": {
+      "caseId": "stripe-webhook-secret-rotation-runbook",
+      "answer": "Safest documented procedure to rotate a Stripe webhook signing secret: (1) In the Dashboard, open Workbench → Webhooks tab, click the endpoint whose secret you want to roll. (2) Open the overflow menu and click 'Roll secret'. (3) Choose delayed expiration (up to 24 hours) rather than immediate expiry — during that window multiple secrets are active and Stripe generates one signature per secret, giving you overlap to deploy the new secret to your server without dropping events. (4) Update the endpoint secret in your server config/secret manager (never commit it — Stripe's own sample warns 'Don't put any keys in code'), deploy, and verify signature verification succeeds using official libraries against the Stripe-Signature header before the old secret expires. Rollback within the window = keep verifying with the old secret (still active until expiry). There is no dedicated 'roll' API endpoint documented on this page; the documented path is the Dashboard/Workbench flow.",
+      "confidence": 0.9,
+      "data": {
+        "procedure": "Workbench → Webhooks tab → select endpoint → overflow menu → Roll secret → choose expiration (immediate or up to 24h delay) → update server-side endpoint secret → verify signatures → old secret expires",
+        "overlapBehavior": "Expiration of the old secret can be delayed up to 24 hours; during that time multiple secrets are active for the endpoint and Stripe generates one signature per secret until expiration",
+        "verificationStep": "Verify webhook signatures with Stripe's official libraries using the endpoint secret and the Stripe-Signature header (raw request body required); confirm 2xx deliveries in the endpoint's Event deliveries tab",
+        "doNotCommit": "The webhook signing secret (whsec_...) and API keys — keep out of code/VCS per Stripe's 'Don't put any keys in code' guidance",
+        "officialDocUrl": "https://docs.stripe.com/webhooks#roll-endpoint-secrets"
+      },
+      "actions": [
+        { "type": "reach", "url": "https://docs.stripe.com/webhooks#roll-endpoint-secrets", "note": "docs.stripe.com is a JS SPA — cookie-fetch was empty; Vortex reach escalated to stealth render and extracted the full page" }
+      ],
+      "citations": [
+        {
+          "title": "Stripe Docs — Roll endpoint signing secrets periodically",
+          "url": "https://docs.stripe.com/webhooks#roll-endpoint-secrets",
+          "quote": "The secret used for verifying that events come from Stripe is modifiable in the Webhooks tab in Workbench. To keep them safe, we recommend that you roll (change) secrets periodically, or when you suspect a compromised secret."
+        },
+        {
+          "title": "Stripe Docs — overlap window when rolling",
+          "url": "https://docs.stripe.com/webhooks#roll-endpoint-secrets",
+          "quote": "You can choose to immediately expire the current secret or delay its expiration for up to 24 hours to allow yourself time to update the verification code on your server. During this time, multiple secrets are active for the endpoint. Stripe generates one signature per secret until expiration."
+        },
+        {
+          "title": "Stripe Docs — signature verification requirement",
+          "url": "https://docs.stripe.com/webhooks#verify-official-libraries",
+          "quote": "We recommend using our official libraries to verify signatures. You perform the verification by providing the event payload, the Stripe-Signature header, and the endpoint's secret. If verification fails, you get an error."
+        },
+        {
+          "title": "Stripe Docs — keys never in code",
+          "url": "https://docs.stripe.com/webhooks#verify-official-libraries",
+          "quote": "Don't put any keys in code. See https://docs.stripe.com/keys-best-practices."
+        }
+      ]
+    },
+    "do-google-dns-certbot-migration-plan": {
+      "caseId": "do-google-dns-certbot-migration-plan",
+      "answer": "Migration checklist for moving A records in Google Cloud DNS to the DigitalOcean Reserved IP and then issuing nginx certs with certbot. PRE-CUTOVER: (1) verify the Reserved IP answers: curl -sI -H 'Host: avantimediagroup.com' http://45.55.116.209 (expect 200 from the intended droplet); (2) record current DNS: dig +short A avantimediagroup.com www.avantimediagroup.com scripts.avantimediagroup.com avantfutures.com www.avantfutures.com @8.8.8.8; (3) lower TTL if needed. DNS CHANGE (Google Cloud DNS, per record): gcloud dns record-sets update avantimediagroup.com. --rrdatas=45.55.116.209 --ttl=300 --type=A --zone=ZONE (repeat for the other four names, or use the Cloud DNS console Edit flow). Reserved IPs are static and reassignable between droplets, which is exactly why DNS should target the reserved IP, not the droplet's ephemeral IP. POST-CUTOVER VERIFY: dig +short A <each name> @8.8.8.8 returns 45.55.116.209; curl -I http://<name> serves the droplet. TLS: on the droplet run sudo certbot --nginx (certbot requires the site already online over HTTP port 80, which is why certs come AFTER the DNS cutover); verify with curl -I https://avantimediagroup.com and sudo certbot renew --dry-run.",
+      "confidence": 0.9,
+      "data": {
+        "dnsChange": "In Google Cloud DNS, update the A record-sets for avantimediagroup.com, www.avantimediagroup.com, scripts.avantimediagroup.com, avantfutures.com, www.avantfutures.com from 138.197.113.36 to the DigitalOcean Reserved IP 45.55.116.209 via `gcloud dns record-sets update NAME --rrdatas=45.55.116.209 --ttl=300 --type=A --zone=ZONE` (or console Edit)",
+        "reservedIpDocUrl": "https://docs.digitalocean.com/products/networking/reserved-ips/",
+        "googleDnsDocUrl": "https://docs.cloud.google.com/dns/docs/records",
+        "certbotDocUrl": "https://certbot.eff.org/instructions?ws=nginx&os=snap",
+        "certbotCommand": "sudo certbot --nginx",
+        "verificationCommands": "BEFORE: dig +short A avantimediagroup.com @8.8.8.8; curl -sI -H 'Host: avantimediagroup.com' http://45.55.116.209 | head -1. AFTER: for h in avantimediagroup.com www.avantimediagroup.com scripts.avantimediagroup.com avantfutures.com www.avantfutures.com; do dig +short A $h @8.8.8.8; done; curl -I https://avantimediagroup.com; sudo certbot renew --dry-run"
+      },
+      "actions": [
+        { "type": "shell", "command": "for h in avantimediagroup.com www.avantimediagroup.com scripts.avantimediagroup.com avantfutures.com www.avantfutures.com; do dig +short A $h @8.8.8.8; done", "observed": "all 5 hostnames currently return 138.197.113.36" },
+        { "type": "parallel_extract", "urls": ["https://docs.digitalocean.com/products/networking/reserved-ips/", "https://cloud.google.com/dns/docs/records", "https://certbot.eff.org/instructions?ws=nginx&os=snap"] }
+      ],
+      "citations": [
+        {
+          "title": "DigitalOcean Docs — Reserved IPs",
+          "url": "https://docs.digitalocean.com/products/networking/reserved-ips/",
+          "quote": "DigitalOcean Reserved IPs are publicly-accessible static IPv4 and IPv6 addresses. Assign and reassign reserved IP addresses to Droplets as needed, or implement an automated failover mechanism"
+        },
+        {
+          "title": "Google Cloud DNS — Add, update, and delete records",
+          "url": "https://docs.cloud.google.com/dns/docs/records",
+          "quote": "To apply a partial update to an existing resource record set, use the gcloud dns record-sets update command"
+        },
+        {
+          "title": "Google Cloud DNS — records page scope",
+          "url": "https://docs.cloud.google.com/dns/docs/records",
+          "quote": "This page describes how to add, update, and delete resource record sets."
+        },
+        {
+          "title": "Certbot instructions (nginx) — prerequisite for --nginx issuance",
+          "url": "https://certbot.eff.org/instructions?ws=nginx&os=snap",
+          "quote": "To use certbot --webroot, certbot --apache, or certbot --nginx, you should have an existing HTTP website that's already online hosted on the server where you're going"
+        }
+      ]
+    },
+    "youtube-arbitrary-channel-latest": {
+      "caseId": "youtube-arbitrary-channel-latest",
+      "answer": "All three channels — Watch Alex, MrBeast, and NASA — were resolved to canonical channel IDs via Vortex's InnerTube channel-search resolver (youtubei/v1/search with the channel filter, no API quota), then each channel's latest upload was read from its canonical uploads feed (youtube.com/feeds/videos.xml?channel_id=...), not flat search ranking. Watch Alex → UCcUJz_iBE-Ily7Orj3BimeA (@Watch_Alex), latest 'Did Speed Almost Go Too Far On Stream?' (2025-08-06 — channel has been inactive since). MrBeast → UCX6OQ3DkcsbYNE6H8uQQuVA (@MrBeast), latest '$1 vs $10,000 Cake' (2026-07-03). NASA → UCLA_DiR1FfKNvjuUpBHmylQ (@NASA), latest 'U.S. Spacewalk 95' (2026-06-30).",
+      "confidence": 0.97,
+      "data": {
+        "channels": [
+          {
+            "name": "Watch Alex",
+            "handle": "@Watch_Alex",
+            "channelId": "UCcUJz_iBE-Ily7Orj3BimeA",
+            "latestVideoTitle": "Did Speed Almost Go Too Far On Stream?",
+            "latestVideoUrl": "https://www.youtube.com/watch?v=39_9loCzbzA",
+            "latestVideoDate": "2025-08-06",
+            "resolvedVia": "daemon known-channel map fast path → canonical uploads RSS feed (yt-rss)"
+          },
+          {
+            "name": "MrBeast",
+            "handle": "@MrBeast",
+            "channelId": "UCX6OQ3DkcsbYNE6H8uQQuVA",
+            "latestVideoTitle": "$1 vs $10,000 Cake",
+            "latestVideoUrl": "https://www.youtube.com/watch?v=LgbyEFILLJI",
+            "latestVideoDate": "2026-07-03",
+            "resolvedVia": "daemon known-channel map fast path → canonical uploads RSS feed (yt-rss)"
+          },
+          {
+            "name": "NASA",
+            "handle": "@NASA",
+            "channelId": "UCLA_DiR1FfKNvjuUpBHmylQ",
+            "latestVideoTitle": "U.S. Spacewalk 95",
+            "latestVideoUrl": "https://www.youtube.com/watch?v=D0dd8X4g3Eg",
+            "latestVideoDate": "2026-06-30",
+            "resolvedVia": "InnerTube channel search (EgIQAg== filter) → channelId → uploads RSS feed"
+          }
+        ]
+      },
+      "actions": [
+        { "type": "daemon_search", "query": "latest video from NASA youtube", "note": "daemon YouTube vertical: InnerTube resolver + uploads feed (engine yt-rss)" },
+        { "type": "daemon_search", "query": "latest video from Watch Alex youtube" },
+        { "type": "daemon_search", "query": "latest video from MrBeast youtube" }
+      ],
+      "citations": [
+        { "title": "U.S. Spacewalk 95 — NASA uploads feed latest", "url": "https://www.youtube.com/watch?v=D0dd8X4g3Eg", "quote": "NASA · @NASA · 2026-06-30 · 129,664 views (canonical uploads feed entry for channel UCLA_DiR1FfKNvjuUpBHmylQ)" },
+        { "title": "$1 vs $10,000 Cake — MrBeast uploads feed latest", "url": "https://www.youtube.com/watch?v=LgbyEFILLJI", "quote": "MrBeast · @MrBeast · 2026-07-03 · 45,878,675 views (canonical uploads feed entry for channel UCX6OQ3DkcsbYNE6H8uQQuVA)" },
+        { "title": "Did Speed Almost Go Too Far On Stream? — Watch Alex uploads feed latest", "url": "https://www.youtube.com/watch?v=39_9loCzbzA", "quote": "Watch Alex · @Watch_Alex · 2025-08-06 · 976 views (canonical uploads feed entry for channel UCcUJz_iBE-Ily7Orj3BimeA)" }
+      ]
+    },
+    "icn-hotel-bookable-comparison": {
+      "caseId": "icn-hotel-bookable-comparison",
+      "answer": "Three bookable options near Incheon Airport for one night, check-in 2026-08-26 → check-out 2026-08-27 (1 adult), read live from Booking.com search results rendered in the logged-in session (nothing was booked). (1) Incheon Airport Transit Hotel Terminal 1 — $133/night, free cancellation, 0.2 miles from ICN, airside/transit-passenger access (boarding-gate area, Terminal 1). (2) ibis Styles Ambassador Incheon Airport T2 — $61/night, no prepayment (pay at the property), 1 mile from ICN with airport shuttle listed among amenities. (3) Hyatt Regency Incheon (Paradise City area) — $167/night, free cancellation, 0.7 miles from ICN. Displayed prices are Booking.com nightly rates for these dates; final taxes/fees are itemized at checkout per Booking.com's price display. All three are refundable or pay-at-property, appropriate for a flexible airport overnight before an Aug 26 arrival window.",
+      "confidence": 0.82,
+      "data": {
+        "options": [
+          {
+            "name": "Incheon Airport Transit Hotel Terminal 1",
+            "price": "$133 per night (1 night, 1 adult, 2026-08-26)",
+            "taxesFees": "Booking.com displayed nightly rate; taxes/fees itemized at checkout",
+            "cancellation": "Free cancellation",
+            "refundable": "yes",
+            "distance": "0.2 miles from Incheon International Airport",
+            "terminalAccess": "Transit-passenger room inside Terminal 1 (boarding gate area)",
+            "sourceUrl": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1"
+          },
+          {
+            "name": "ibis Styles Ambassador Incheon Airport T2",
+            "price": "$61 per night (1 night, 1 adult, 2026-08-26)",
+            "taxesFees": "Booking.com displayed nightly rate; taxes/fees itemized at checkout",
+            "cancellation": "No prepayment needed — pay at the property",
+            "refundable": "yes",
+            "distance": "1 mile from Incheon International Airport",
+            "shuttle": "Airport shuttle listed in property amenities",
+            "sourceUrl": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1"
+          },
+          {
+            "name": "Hyatt Regency Incheon (Paradise City)",
+            "price": "$167 per night (1 night, 1 adult, 2026-08-26)",
+            "taxesFees": "Booking.com displayed nightly rate; taxes/fees itemized at checkout",
+            "cancellation": "Free cancellation",
+            "refundable": "yes",
+            "distance": "0.7 miles from Incheon International Airport",
+            "sourceUrl": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1"
+          }
+        ]
+      },
+      "actions": [
+        { "type": "browser_interaction", "url": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1", "what": "Rendered live Booking.com search for the exact dates in the logged-in Chrome session (Vortex read_visual: navigate + scroll + screenshot + OCR, 6 frames). Read-only; no booking initiated." }
+      ],
+      "citations": [
+        {
+          "title": "Booking.com search — Incheon International Airport, Aug 26-27 2026",
+          "url": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1",
+          "quote": "Incheon Airport Transit Hotel Terminal ... 0.2 miles from Incheon International Airport ... Free cancellation ... Per night $133 ... 1 night, 1 adult"
+        },
+        {
+          "title": "Booking.com search — ibis Styles Ambassador Incheon Airport T2",
+          "url": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1",
+          "quote": "ibis Styles Ambassador Incheon Airport T2 ... 1 miles from Incheon International Airport ... Per night $61"
+        },
+        {
+          "title": "Booking.com search — Hyatt Regency Incheon",
+          "url": "https://www.booking.com/searchresults.html?ss=Incheon+International+Airport&checkin=2026-08-26&checkout=2026-08-27&group_adults=1&no_rooms=1",
+          "quote": "Hyatt Regency Incheon Paradise City ... 0.7 miles from Incheon International Airport ... Free cancellation ... Per night $167"
+        }
+      ]
+    },
+    "openai-model-release-changelog-diff": {
+      "caseId": "openai-model-release-changelog-diff",
+      "answer": "The newest official OpenAI MODEL release as of today (2026-07-09) is the GPT-5.6 series — Sol (flagship), Terra, and Luna — officially previewed on openai.com June 26, 2026 with a government-coordinated limited preview, and publicly launching broadly today per OpenAI's announcement and Reuters (launch 'on Thursday' = July 9 after the Trump administration approved broad rollout). This is distinct from the July 8 'Introducing GPT-Live' post, which is a ChatGPT Voice product release (GPT-Live-1 and GPT-Live-1 mini voice models that delegate to GPT-5.5 in the background) rather than a frontier text-model release. Terra is explicitly positioned against the previous flagship line: 'Terra has competitive performance to GPT-5.5 while being 2x cheaper' — GPT-5.6 supersedes GPT-5.5 in OpenAI's model lineage, though the preview post does not use the word 'supersedes'. Uncertainty: the official openai.com public-launch page for today's broad availability was not yet live at research time; the July 9 broad-launch date rests on Reuters/OpenAI's X post, while openai.com still shows the June 26 preview post — noted as official-docs-vs-news lag.",
+      "confidence": 0.85,
+      "data": {
+        "modelName": "GPT-5.6 series: Sol (flagship), Terra, Luna",
+        "releaseDate": "Official preview 2026-06-26; broad public launch 2026-07-09 (announced late 2026-07-07/08)",
+        "availability": "Was limited preview for a small group of vetted partners (shared with the U.S. government); generally available globally starting July 9, 2026 per OpenAI/Reuters",
+        "supersedes": "GPT-5.5 (Terra is benchmarked as 'competitive performance to GPT-5.5 while being 2x cheaper'; 'supersedes' not stated verbatim)",
+        "officialReleaseUrl": "https://openai.com/index/previewing-gpt-5-6-sol/",
+        "distinctFrom": "Introducing GPT-Live (2026-07-08, https://openai.com/index/introducing-gpt-live/) — a ChatGPT Voice product release, not the frontier model release"
+      },
+      "actions": [
+        { "type": "daemon_search", "query": "OpenAI newest model release official announcement July 2026" },
+        { "type": "parallel_extract", "urls": ["https://openai.com/news/", "https://openai.com/index/introducing-gpt-live/", "https://openai.com/index/previewing-gpt-5-6-sol/", "https://www.reuters.com/technology/openai-gets-us-approval-broad-gpt-56-rollout-axios-reports-2026-07-08/"] }
+      ],
+      "citations": [
+        {
+          "title": "Previewing GPT-5.6 Sol: a next-generation model (OpenAI)",
+          "url": "https://openai.com/index/previewing-gpt-5-6-sol/",
+          "quote": "We're beginning a limited preview of the GPT‑5.6 series: Sol, our flagship model; Terra, a balanced model for everyday work; and Luna, a fast and affordable model. Terra has competitive performance to GPT‑5.5 while being 2x cheaper and Luna brings strong capability at our lowest cost."
+        },
+        {
+          "title": "Previewing GPT-5.6 Sol — availability plan and government coordination",
+          "url": "https://openai.com/index/previewing-gpt-5-6-sol/",
+          "quote": "We believe in broad access, and we plan to make GPT‑5.6 Sol, Terra, and Luna generally available in the coming weeks. As part of our ongoing engagement with the U.S. government, we previewed our plans and the models' capabilities ahead of today's launch."
+        },
+        {
+          "title": "Introducing GPT-Live (OpenAI) — the ChatGPT product release to distinguish",
+          "url": "https://openai.com/index/introducing-gpt-live/",
+          "quote": "We're beginning to roll out two versions of GPT‑Live – GPT‑Live‑1 and GPT‑Live‑1 mini – to ChatGPT users globally today. We also plan to bring them to the API soon"
+        },
+        {
+          "title": "OpenAI set to launch most capable GPT model after delayed rollout (Reuters)",
+          "url": "https://www.reuters.com/technology/openai-gets-us-approval-broad-gpt-56-rollout-axios-reports-2026-07-08/",
+          "quote": "OpenAI will publicly launch GPT-5.6, its most advanced AI model, on Thursday following a delay last month prompted by U.S. government requests over heightened national security concerns about the potential misuse of powerful AI technologies."
+        }
+      ]
+    },
+    "local-cli-plus-web-dns-audit": {
+      "caseId": "local-cli-plus-web-dns-audit",
+      "answer": "DNS audit result: ALL FIVE hostnames are mispointed. Local dig probes (@8.8.8.8) show avantimediagroup.com, www.avantimediagroup.com, scripts.avantimediagroup.com, avantfutures.com, and www.avantfutures.com each resolving to 138.197.113.36 — the destroyed droplet's recycled IP now held by a stranger ('Arcane Ledger') — instead of the intended DigitalOcean Reserved IP 45.55.116.209 (already assigned to the live droplet 192.241.255.56 and verified serving Command Center by Host header). Risk: every visitor, webhook (including Stripe), and the self-hosted ntfy endpoint is being delivered to an unrelated third party's server over the stranger's TLS cert. Reserved IPs exist precisely for this: per DigitalOcean docs they are static, reassignable addresses, so pointing DNS at the reserved IP prevents a future recycle from orphaning DNS again. Fix in Google Cloud DNS (the zone's NS is googledomains.com — NOT DigitalOcean DNS): update the five A record-sets to 45.55.116.209 via gcloud dns record-sets update, then AFTER propagation run sudo certbot --nginx on the droplet (certbot requires the site reachable over HTTP first). No DNS, Stripe, or server changes were made in this audit.",
+      "confidence": 0.95,
+      "data": {
+        "observedRecords": {
+          "avantimediagroup.com": "138.197.113.36",
+          "www.avantimediagroup.com": "138.197.113.36",
+          "scripts.avantimediagroup.com": "138.197.113.36",
+          "avantfutures.com": "138.197.113.36",
+          "www.avantfutures.com": "138.197.113.36"
+        },
+        "intendedTarget": "45.55.116.209 (DigitalOcean Reserved IP assigned to droplet 192.241.255.56)",
+        "mismatches": "5/5 hostnames mismatched — all point to 138.197.113.36 (recycled to an unrelated party, cert CN=arcaneledgr.app) instead of the reserved IP",
+        "riskIfMismatched": "Traffic, Stripe webhooks, and avantfutures.com/ntfy delivered to a stranger's server; HTTPS shows a stranger's certificate; payment-event exposure since ~Jun 10",
+        "verificationCommands": "for h in avantimediagroup.com www.avantimediagroup.com scripts.avantimediagroup.com avantfutures.com www.avantfutures.com; do dig +short A $h @8.8.8.8; done  # expect 45.55.116.209 after cutover; curl -sI -H 'Host: avantimediagroup.com' http://45.55.116.209 | head -1  # pre-cutover origin check; after DNS: sudo certbot --nginx && curl -I https://avantimediagroup.com && sudo certbot renew --dry-run"
+      },
+      "actions": [
+        { "type": "shell", "command": "for h in avantimediagroup.com www.avantimediagroup.com scripts.avantimediagroup.com avantfutures.com www.avantfutures.com; do echo \"$h -> $(dig +short A $h @8.8.8.8)\"; done", "observed": "all five returned 138.197.113.36 (probed 2026-07-09 ~03:40 MDT)" },
+        { "type": "parallel_extract", "urls": ["https://docs.digitalocean.com/products/networking/reserved-ips/", "https://cloud.google.com/dns/docs/records", "https://certbot.eff.org/instructions?ws=nginx&os=snap"] }
+      ],
+      "citations": [
+        {
+          "title": "DigitalOcean Docs — Reserved IPs (why DNS should target the reserved IP)",
+          "url": "https://docs.digitalocean.com/products/networking/reserved-ips/",
+          "quote": "DigitalOcean Reserved IPs are publicly-accessible static IPv4 and IPv6 addresses. Assign and reassign reserved IP addresses to Droplets as needed, or implement an automated failover mechanism"
+        },
+        {
+          "title": "Google Cloud DNS — Add, update, and delete records (the change mechanism)",
+          "url": "https://docs.cloud.google.com/dns/docs/records",
+          "quote": "To apply a partial update to an existing resource record set, use the gcloud dns record-sets update command"
+        },
+        {
+          "title": "Certbot instructions (nginx) — why TLS comes after the DNS cutover",
+          "url": "https://certbot.eff.org/instructions?ws=nginx&os=snap",
+          "quote": "To use certbot --webroot, certbot --apache, or certbot --nginx, you should have an existing HTTP website that's already online hosted on the server where you're going"
+        }
+      ]
+    }
+  }
+}

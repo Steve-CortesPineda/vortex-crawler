@@ -1,7 +1,8 @@
 import * as cheerio from 'cheerio';
 import { generateHeaders } from './antibot/headers.js';
-import { bm25ish, tokenize } from './browse-relevance.js';
+import { bm25ish, tokenize, NAV_RE } from './browse-relevance.js';
 import { GenericCache } from './cache/result-cache.js';
+import { sourceQuality, isSyndicationHost, extractResultDate, freshnessAdjust, HOMEPAGE_RE } from './source-rules.js';
 
 export interface SearchResult {
   title: string;
@@ -11,6 +12,10 @@ export interface SearchResult {
   engines?: string[];
   /** Final blended rank score (RRF + relevance + cross-engine agreement). Higher = better. */
   score?: number;
+  /** Source/domain quality adjustment used for ranking. Higher = more authoritative for the query. */
+  sourceQuality?: number;
+  /** Best-effort publish date (ISO yyyy-mm-dd) extracted from the snippet or URL; used for staleness penalties. */
+  publishedAt?: string;
 }
 
 /** Per-engine health for a single search() call — makes silent rot/bot-walls visible.
@@ -34,6 +39,9 @@ export interface SearchResponse {
   engineReports?: EngineReport[];
   /** True if the stealth-Chrome fallback tier was used to backfill the fast tier. */
   usedFallback?: boolean;
+  /** True when NO quality engine (google-session/brave/startpage) answered — results are Bing/Mojeek-only
+   * and should be treated as low-confidence (prone to keyword-match junk). */
+  lowConfidence?: boolean;
   timing: { fetchMs: number; totalMs: number };
 }
 
@@ -79,6 +87,16 @@ async function dispatcherFor(proxy: string): Promise<unknown> {
 export type FallbackSearch = (query: string, max: number) => Promise<{ title: string; url: string }[]>;
 
 /**
+ * A first-class session-backed engine (e.g. logged-in google-session via the VANTA extension). Supplied
+ * as a callback so core imports no browser SDK. Runs CONCURRENTLY with the fetch engines and its results
+ * are RRF-fused like any other engine (covered by the circuit breaker + syndication dedupe + reports).
+ * Higher-value but slower than a plain fetch, so it gets its own wait budget after the fast tier settles.
+ */
+export type SessionEngine = { name: string; fn: (query: string, max: number) => Promise<SearchResult[]> };
+/** How long to wait for session engines after the fast fetch tier has settled. Browser renders take ~1–2s. */
+const SESSION_BUDGET_MS = 6000;
+
+/**
  * Startpage first: it proxies Google's index and stays reachable over plain fetch from IPs where
  * DDG/Mojeek/Brave are bot-walled. Bing is the other reliably-scrapeable HTML endpoint. DDG + Mojeek
  * are kept as best-effort — they cost nothing in parallel and revive on other IPs / logged-in sessions.
@@ -92,10 +110,27 @@ const DEFAULT_ENGINES: SearchEngine[] = ['brave', 'startpage', 'bing', 'mojeek']
 const PROXY_ENGINES: SearchEngine[] = ['startpage', 'bing', 'brave', 'duckduckgo', 'mojeek'];
 /** RRF constant. 60 is the value from the original Cormack et al. paper. */
 const RRF_K = 60;
-/** Weight of single-document relevance (title+snippet vs query) blended on top of RRF. */
-const RELEVANCE_WEIGHT = 0.04;
+/** Weight of single-document relevance (title+snippet vs query) blended on top of RRF. Bumped from 0.04
+ * so a strong single-doc match can climb over a homepage a weak engine ranked #1 — still < RRF's pull. */
+const RELEVANCE_WEIGHT = 0.06;
 /** Per-extra-engine agreement bonus — a result two engines independently found is worth more. */
 const AGREEMENT_BONUS = 0.01;
+/** Source/domain authority adjustment. Kept smaller than relevance so a trusted but irrelevant homepage
+ * cannot beat a strong article, but large enough to lift primary sources and serious wire/editorial outlets. */
+const SOURCE_QUALITY_WEIGHT = 0.035;
+/**
+ * Per-engine TRUST weights on the RRF contribution. Not all engines are equal: the logged-in
+ * google-session and Brave surface real articles, while Bing over plain fetch is homepage-prone. Weighting
+ * demotes Bing's homepages relative to the quality engines WITHOUT dropping Bing's speed + agreement role.
+ * Unknown engines default to 1.0.
+ */
+const ENGINE_WEIGHT: Record<string, number> = {
+  'google-session': 1.3, 'google': 1.2, brave: 1.1, startpage: 1.0, duckduckgo: 1.0, mojeek: 0.9, bing: 0.7,
+};
+const engineWeight = (e: string): number => ENGINE_WEIGHT[e] ?? 1.0;
+/** Penalty subtracted from a bare-homepage / nav result's score (specific queries only) — a homepage is
+ * almost never the best answer to a real question. Sized to sink a homepage below a substantive match. */
+const HOMEPAGE_PENALTY = 0.02;
 const PER_ENGINE_TIMEOUT_MS = 6000;
 /** Soft latency budget: once ≥1 engine has returned results and this much time has passed, stop
  * waiting for stragglers (they're reported as status 'timeout'). Keeps one slow engine from
@@ -156,6 +191,25 @@ export function normalizeUrl(raw: string): string {
 function domainOf(raw: string): string {
   try { return new URL(raw).hostname.toLowerCase().replace(/^(www|m|amp)\./, ''); } catch { return ''; }
 }
+
+/**
+ * Keyword-match JUNK: sites that a weak engine (Bing alone) surfaces because a result shares one COMMON
+ * word with the query — e.g. "cheap hotels" → a Merriam-Webster definition of "cheap" or GasBuddy prices.
+ * Each entry is dropped UNLESS the query is genuinely about that site's topic. This is a hard drop, not a
+ * demotion — a dictionary entry is never the answer to a hotel search.
+ */
+const JUNK_DOMAINS: { re: RegExp; unless: RegExp }[] = [
+  { re: /(^|\.)(merriam-webster|dictionary|thefreedictionary|vocabulary|yourdictionary|collinsdictionary|wordnik|definitions?\.net)\.(com|net|org)/i,
+    unless: /\b(defin\w*|meaning|synonym|antonym|spell\w*|pronounc\w*|etymolog\w*|what does .* mean)\b/i },
+  { re: /(^|\.)gasbuddy\.com/i, unless: /\b(gas|fuel|diesel|petrol|gasoline|mpg)\b/i },
+  { re: /(^|\.)(urbandictionary)\.com/i, unless: /\bslang|urban|meaning\b/i },
+];
+function isJunkResult(url: string, query: string): boolean {
+  for (const j of JUNK_DOMAINS) if (j.re.test(url) && !j.unless.test(query)) return true;
+  return false;
+}
+/** Quality engines whose presence means we trust the top of the list. Bing/Mojeek alone → low confidence. */
+const QUALITY_ENGINES = new Set(['google-session', 'google', 'brave', 'startpage']);
 
 interface FetchResult { status: number; html: string; }
 
@@ -321,16 +375,27 @@ const ENGINE_FNS: Record<SearchEngine, (q: string, max: number, opts?: EngineOpt
   brave: searchBrave,
 };
 
-interface Merged extends SearchResult { _engines: Set<string>; _rrf: number; _rel: number; }
+interface Merged extends SearchResult { _engines: Set<string>; _rrf: number; _rel: number; _quality: number; _fresh: number; }
 
-/** Blend RRF (cross-engine rank agreement) with single-doc relevance and an agreement bonus. */
-function finalScore(m: Merged): number {
-  return m._rrf + RELEVANCE_WEIGHT * m._rel + AGREEMENT_BONUS * (m._engines.size - 1);
+/** Blend RRF (cross-engine rank agreement) with single-doc relevance, an agreement bonus, and the
+ * freshness adjustment (stale results sink on temporal queries); demote bare homepages/nav pages for
+ * real questions (not for short navigational lookups where a homepage IS the answer). */
+function finalScore(m: Merged, demoteHomepages: boolean): number {
+  let s = m._rrf + RELEVANCE_WEIGHT * m._rel + SOURCE_QUALITY_WEIGHT * m._quality + AGREEMENT_BONUS * (m._engines.size - 1) + m._fresh;
+  if (demoteHomepages && (HOMEPAGE_RE.test(m.url) || NAV_RE.test(m.url))) s -= HOMEPAGE_PENALTY;
+  return s;
 }
 
-/** Hosts that mass-republish other outlets' articles verbatim — when a title-dupe pair straddles one
- * of these and an original domain, keep the original URL (better for follow-up extraction). */
-const SYNDICATION_HOSTS = /(^|\.)(msn\.com|news\.yahoo\.com|finance\.yahoo\.com|flipboard\.com)$/i;
+/** A 1–2 word query with no question/temporal markers is likely a site/brand lookup — keep its homepage. */
+function isNavigational(query: string): boolean {
+  const words = query.trim().split(/\s+/);
+  if (words.length > 2) return false;
+  return !/\b(how|why|what|when|who|where|best|top|vs|latest|news|today|review|guide)\b/i.test(query);
+}
+
+// Domain-trust rules, query verticals, and freshness scoring live in source-rules.ts (data-first,
+// maintained lists). Re-exported here so existing consumers (`import { sourceQuality } from search`) hold.
+export { sourceQuality } from './source-rules.js';
 
 /** Key for cross-domain syndication dedupe: same headline on two domains is (almost always) the same
  * article republished. Only long titles qualify — short/generic ones collide legitimately. */
@@ -348,31 +413,44 @@ function foldEngine(
   terms: string[],
   titleIndex: Map<string, string> = new Map(),
 ): void {
+  const w = engineWeight(engine);
   results.forEach((r, rank) => {
     const key = normalizeUrl(r.url);
-    const contrib = 1 / (RRF_K + rank + 1);
+    const contrib = w / (RRF_K + rank + 1); // trust-weighted RRF: quality engines pull harder
     const tkey = titleKey(r.title);
     const existing = merged.get(key) ?? (tkey ? merged.get(titleIndex.get(tkey) || '') : undefined);
+    const query = terms.join(' ');
     if (existing) {
       existing._engines.add(engine);
       existing._rrf += contrib;
       if (!existing.snippet && r.snippet) existing.snippet = r.snippet;
       if (existing.title.length < r.title.length) existing.title = r.title;
+      if (!existing.publishedAt) {
+        const d = extractResultDate(r.snippet, r.url);
+        if (d) { existing.publishedAt = d; existing._fresh = freshnessAdjust(query, d); }
+      }
       // Same article on a syndicator AND its original outlet → keep the original's URL.
-      if (SYNDICATION_HOSTS.test(domainOf(existing.url)) && !SYNDICATION_HOSTS.test(domainOf(r.url))) {
+      if (isSyndicationHost(domainOf(existing.url)) && !isSyndicationHost(domainOf(r.url))) {
         existing.url = r.url;
+        existing._quality = sourceQuality(r.url, query);
       }
     } else {
       const rel = bm25ish(terms, `${r.title} ${r.snippet}`, r.title);
-      merged.set(key, { ...r, _engines: new Set([engine]), _rrf: contrib, _rel: rel });
+      const quality = sourceQuality(r.url, query);
+      const dateIso = extractResultDate(r.snippet, r.url);
+      merged.set(key, {
+        ...r, publishedAt: dateIso || undefined,
+        _engines: new Set([engine]), _rrf: contrib, _rel: rel, _quality: quality,
+        _fresh: freshnessAdjust(query, dateIso),
+      });
       if (tkey) titleIndex.set(tkey, key);
     }
   });
 }
 
 /** Final ordering: blended score desc, with a per-domain cap applied greedily (then top-up if short). */
-function rankAndCap(merged: Map<string, Merged>, maxResults: number, perDomain: number): SearchResult[] {
-  const sorted = [...merged.values()].sort((a, b) => finalScore(b) - finalScore(a));
+function rankAndCap(merged: Map<string, Merged>, maxResults: number, perDomain: number, demoteHomepages: boolean): SearchResult[] {
+  const sorted = [...merged.values()].sort((a, b) => finalScore(b, demoteHomepages) - finalScore(a, demoteHomepages));
   const picked: Merged[] = [];
   const domainCount = new Map<string, number>();
   const overflow: Merged[] = [];
@@ -394,7 +472,9 @@ function rankAndCap(merged: Map<string, Merged>, maxResults: number, perDomain: 
     url: m.url,
     snippet: m.snippet,
     engines: [...m._engines],
-    score: Number(finalScore(m).toFixed(4)),
+    score: Number(finalScore(m, demoteHomepages).toFixed(4)),
+    sourceQuality: Number(m._quality.toFixed(3)),
+    publishedAt: m.publishedAt,
   }));
 }
 
@@ -418,6 +498,8 @@ export async function search(query: string, options?: {
   /** SERP-level recency filter (verified on Startpage; best-effort on Bing/DDG). */
   freshness?: Freshness;
   fallback?: FallbackSearch;
+  /** First-class session-backed engines (e.g. logged-in google-session) fused alongside the fetch engines. */
+  sessionEngines?: SessionEngine[];
   /** Skip the short-TTL cache for this call. */
   noCache?: boolean;
 }): Promise<SearchResponse> {
@@ -450,7 +532,21 @@ export async function search(query: string, options?: {
     else active.push(e);
   }
 
-  // Fire all live engines in parallel; settle either when every engine answers or when the soft
+  // Kick off session engines (google-session etc.) CONCURRENTLY with the fetch engines. They're slower
+  // (browser render), so we start them now and collect after the fast tier, giving them their own budget.
+  // NOTE: session engines are NOT subject to the long fetch-engine circuit breaker — they SELF-PACE with
+  // their own short cooldown (see ExtensionBrowser.googleSearch) and cap latency via SESSION_BUDGET_MS.
+  // Tripping the 5–30min breaker on a transient CAPTCHA was exactly what kept knocking google-session out
+  // and leaving Bing-only junk. So always attempt them; their internal cooldown gates a real block.
+  const sessionEngines = options?.sessionEngines || [];
+  const sessionStart = performance.now();
+  const sessionPromises = sessionEngines.map((se) =>
+    se.fn(query, perEngine)
+      .then((results) => ({ se, results, ms: performance.now() - sessionStart }))
+      .catch((err) => ({ se, err: err as Error, ms: performance.now() - sessionStart }))
+  );
+
+  // Fire all live fetch engines in parallel; settle either when every engine answers or when the soft
   // budget elapses with at least one engine's results in hand (stragglers → status 'timeout').
   type Outcome = { results?: SearchResult[]; err?: Error; ms: number };
   const outcomes = new Map<SearchEngine, Outcome>();
@@ -493,6 +589,36 @@ export async function search(query: string, options?: {
     }
   }
 
+  // ── Session engines (google-session etc.) ─────────────────────────────
+  // Collect the concurrently-started session engines, bounded by their own budget so a slow render
+  // can't hang the whole search. Fold into the SAME fusion map — RRF, dedupe, diversity all apply.
+  if (sessionPromises.length) {
+    const budget = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), SESSION_BUDGET_MS));
+    const settledSession = await Promise.race([Promise.allSettled(sessionPromises), budget]);
+    if (settledSession !== 'timeout') {
+      for (const s of settledSession as PromiseSettledResult<{ se: SessionEngine; results?: SearchResult[]; err?: Error; ms: number }>[]) {
+        if (s.status !== 'fulfilled') continue;
+        const { se, results, err, ms } = s.value;
+        if (results) {
+          reports.push({ engine: se.name, status: results.length ? 'ok' : 'zero', count: results.length, ms: Math.round(ms) });
+          if (results.length) { sources.push(se.name); foldEngine(merged, se.name, results, terms, titleIndex); }
+        } else {
+          // No long breaker trip — session engines self-pace. Report the error; they'll retry next call.
+          reports.push({ engine: se.name, status: 'error', count: 0, ms: Math.round(ms), note: (err?.message || 'error').slice(0, 80) });
+        }
+      }
+    } else {
+      for (const se of sessionEngines) if (!reports.find((r) => r.engine === se.name)) {
+        reports.push({ engine: se.name, status: 'timeout', count: 0, ms: SESSION_BUDGET_MS, note: `no answer within ${SESSION_BUDGET_MS}ms` });
+      }
+    }
+  }
+
+  // Hard-drop keyword-match junk (dictionary/gas/etc.) BEFORE the fallback decision — otherwise a
+  // junk-only result set reads as "not thin", skips the fallback, then gets emptied at rank time.
+  // (Map deletion during for-of is safe in V8: deleting the current key doesn't skip successors.)
+  for (const [k, m] of merged) if (isJunkResult(m.url, query)) merged.delete(k);
+
   // ── Hybrid fallback tier ──────────────────────────────────────────────
   // Escalate to the stealth-Chrome engine when the fast tier is weak.
   const okCount = reports.filter((r) => r.status === 'ok').length;
@@ -517,7 +643,11 @@ export async function search(query: string, options?: {
     }
   }
 
-  const results = rankAndCap(merged, maxResults, perDomain);
+  const results = rankAndCap(merged, maxResults, perDomain, !isNavigational(query));
+
+  // Low confidence when NO quality engine answered — the list is only as good as Bing/Mojeek alone, which
+  // keyword-matches junk. Surface this so callers don't treat weak results as authoritative.
+  const lowConfidence = !sources.some((s) => QUALITY_ENGINES.has(s));
 
   const response: SearchResponse = {
     query,
@@ -526,6 +656,7 @@ export async function search(query: string, options?: {
     sources,
     engineReports: reports,
     usedFallback,
+    lowConfidence,
     timing: { fetchMs, totalMs: performance.now() - start },
   };
   if (!options?.noCache) searchCache.set(cacheKey, response);

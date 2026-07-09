@@ -7,7 +7,10 @@
     "dev": "turbo run dev",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "bench": "node benchmarks/run.mjs"
+    "bench": "node benchmarks/run.mjs",
+    "stress:search-quality": "node tools/search-quality-stress.mjs",
+    "stress:browser-frontier": "node tools/frontier-web-browsing-benchmark.mjs",
+    "bench:search-quality": "node benchmarks/search-quality.mjs"
   },
   "devDependencies": {
     "playwright": "^1.60.0",
@@ -16,5 +19,9 @@
     "turbo": "^2.4.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@types/ws": "^8.18.1",
+    "ws": "^8.21.0"
   }
 }

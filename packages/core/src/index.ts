@@ -1,5 +1,6 @@
 export { VortexCrawler } from './crawler.js';
 export type { ScrapeOptions, CrawlOptions, MapOptions } from './crawler.js';
+export type { CookieFetcher } from './fetcher/adaptive-fetcher.js';
 
 // Types
 export * from './types/index.js';
@@ -30,8 +31,10 @@ export { PluginManager } from './plugin/plugin-manager.js';
 export type { VortexPlugin } from './plugin/types.js';
 
 // Search
-export { search, proxiesConfigured } from './search.js';
+export { search, proxiesConfigured, sourceQuality } from './search.js';
 export type { SearchResult, SearchResponse, SearchEngine, Freshness, EngineReport, EngineStatus } from './search.js';
+export { queryDomain, extractResultDate, freshnessAdjust, isTemporalQuery, sourceClass } from './source-rules.js';
+export type { QueryVertical, SourceClass } from './source-rules.js';
 
 // Browser daemon client
 export { VortexDaemonClient } from './daemon-client.js';
@@ -61,11 +64,19 @@ export type { DiscoverResult, DiscoverOptions, DiscoveredEvent, DiscoverDomainRe
 export { track, setWatchlist, getWatchlist, DEFAULT_WATCHLIST } from './tracker.js';
 export type { WatchEntity, TrackedMention, TrackDigest, TrackOptions, EntityType } from './tracker.js';
 
+// VANTA extension bridge (real-Chrome control via MV3 extension — cookie-fetch tier + parallel tab pool)
+export { BridgeServer, ExtensionBrowser, TabPool, tierFor, assertAllowed, policySnapshot, BRIDGE_PROTOCOL_VERSION } from './extension-bridge/index.js';
+export type { BridgeServerOptions, TabPoolOptions, DomainTier, BridgeOp, ActStep, ExtensionExtractResult, ExtensionActResult } from './extension-bridge/index.js';
+
 // Browse loop (autonomous multi-hop research)
 export { browse } from './browse.js';
 export type { BrowseResult, BrowseHop, BrowseOptions, RankLinks } from './browse.js';
+
+// Tree browse (parallel, relevance-gated research tree — adaptive depth)
+export { treeBrowse } from './tree-browse.js';
+export type { TreeBrowseResult, TreeBrowseOptions, TreeNode, TreeFetcher, TreeFetchResult } from './tree-browse.js';
 export { GenericCache } from './cache/result-cache.js';
-export { bm25ish, scoreLink, ageInDays, recencyScore, tokenize } from './browse-relevance.js';
+export { bm25ish, scoreLink, ageInDays, recencyScore, tokenize, keyPassages, classifyQuery, stripMarkdownLinks } from './browse-relevance.js';
 
 // Convenience
 export function defineConfig(config: Partial<import('./types/config.js').VortexConfig>) {

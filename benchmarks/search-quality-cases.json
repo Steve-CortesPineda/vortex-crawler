@@ -1,0 +1,82 @@
+{
+  "$comment": "Search-quality regression cases. Each case pins EXPECTED SOURCE CLASSES for a live query, not exact URLs — expectations survive index churn and weight tweaks. Run: node benchmarks/search-quality.mjs [--daemon] [--only=name]. Classes come from core sourceClass(): gov, ai-lab, official-docs, code, wire, specialist, syndication, low-trust, tutorial-farm, social, youtube, homepage, other.",
+  "cases": [
+    {
+      "name": "technical-stripe-webhooks",
+      "query": "stripe webhook signing secret rotation",
+      "vertical": "technical",
+      "expectAnyInTop": { "n": 3, "classes": ["official-docs"] },
+      "forbidInTop": { "n": 5, "classes": ["tutorial-farm", "syndication", "low-trust"] }
+    },
+    {
+      "name": "technical-certbot-nginx",
+      "query": "certbot nginx renew certificate dns challenge",
+      "vertical": "technical",
+      "expectAnyInTop": { "n": 4, "classes": ["official-docs", "code"] },
+      "forbidInTop": { "n": 5, "classes": ["syndication", "low-trust"] }
+    },
+    {
+      "name": "technical-react-docs",
+      "query": "react useEffect cleanup function docs",
+      "vertical": "technical",
+      "expectAnyInTop": { "n": 3, "classes": ["official-docs"] },
+      "forbidInTop": { "n": 5, "classes": ["tutorial-farm"] }
+    },
+    {
+      "name": "technical-rfc",
+      "query": "RFC 6455 websocket close codes",
+      "vertical": "technical",
+      "expectAnyInTop": { "n": 3, "classes": ["official-docs", "code"] },
+      "forbidInTop": { "n": 5, "classes": ["tutorial-farm", "low-trust"] }
+    },
+    {
+      "name": "news-ai-temporal",
+      "query": "anthropic latest model release",
+      "vertical": "ai",
+      "expectAnyInTop": { "n": 4, "classes": ["ai-lab", "wire", "specialist"] },
+      "forbidInTop": { "n": 5, "classes": ["syndication", "low-trust", "tutorial-farm"] },
+      "freshWithinDays": 400
+    },
+    {
+      "name": "news-markets-fed",
+      "query": "federal reserve rate decision latest",
+      "vertical": "markets",
+      "expectAnyInTop": { "n": 4, "classes": ["gov", "wire"] },
+      "forbidInTop": { "n": 5, "classes": ["syndication", "low-trust"] },
+      "freshWithinDays": 120
+    },
+    {
+      "name": "news-nvidia-temporal",
+      "query": "nvidia ai chip latest news",
+      "vertical": "ai",
+      "expectAnyInTop": { "n": 4, "classes": ["ai-lab", "wire", "specialist"] },
+      "forbidInTop": { "n": 5, "classes": ["syndication", "low-trust"] }
+    },
+    {
+      "name": "youtube-channel-latest",
+      "query": "latest video from fireship youtube",
+      "vertical": "youtube",
+      "expectAnyInTop": { "n": 3, "classes": ["youtube"] },
+      "daemonOnly": true
+    },
+    {
+      "name": "commerce-buy",
+      "query": "best place to buy m4 mac mini deal",
+      "vertical": "commerce",
+      "forbidInTop": { "n": 5, "classes": ["low-trust", "syndication"] }
+    },
+    {
+      "name": "travel-visa",
+      "query": "south korea visa requirements for us citizens",
+      "vertical": "travel",
+      "expectAnyInTop": { "n": 5, "classes": ["gov"] },
+      "forbidInTop": { "n": 5, "classes": ["low-trust"] }
+    },
+    {
+      "name": "navigational-homepage-ok",
+      "query": "github",
+      "vertical": "general",
+      "expectUrlInTop": { "n": 2, "pattern": "^https://github\\.com/?$" }
+    }
+  ]
+}
