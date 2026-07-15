@@ -7,3 +7,4 @@ dist/
 .env.*
 ._*
 .DS_Store
+benchmarks/search-quality-history/

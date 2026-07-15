@@ -447,10 +447,16 @@ function isNavigational(query: string): boolean {
 export { sourceQuality } from './source-rules.js';
 
 /** Key for cross-domain syndication dedupe: same headline on two domains is (almost always) the same
- * article republished. Only long titles qualify — short/generic ones collide legitimately. */
+ * article republished. Near-match, not exact: syndicators append their own name ("… | MSN", "… - Yahoo
+ * Finance") and truncate with an ellipsis, so we strip a trailing publisher segment and key on the first
+ * 10 words. Only long titles qualify — short/generic ones collide legitimately. */
 function titleKey(title: string): string | null {
-  const k = title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  return k.length >= 25 ? k : null;
+  const stripped = title
+    .replace(/(\s*[|\-–—·]\s*)[A-Z][\w.&' ]{2,30}$/, '') // trailing " | Publisher" / " - Site Name"
+    .replace(/(\.{3}|…)\s*$/, '');
+  const k = stripped.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (k.length < 25) return null;
+  return k.split(' ').slice(0, 10).join(' ');
 }
 
 /** Fold one engine's ranked results into the merge map (RRF + relevance), deduping by normalized URL

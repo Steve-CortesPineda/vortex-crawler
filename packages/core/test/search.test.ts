@@ -224,6 +224,18 @@ describe('search() fusion, health, and fallback', () => {
     expect(hits[0].url).toContain('cnbc.com');
   });
 
+  it('dedupes NEAR-match syndication: publisher suffix + ellipsis truncation collapse to the original', async () => {
+    const base = 'Nvidia smashes expectations with record data center revenue in Q2';
+    const bing = `
+      <li class="b_algo"><h2><a href="https://www.aol.com/news/x">${base} | AOL</a></h2><div class="b_caption"><p>widgets syndicated</p></div></li>
+      <li class="b_algo"><h2><a href="https://www.cnbc.com/2026/07/01/nvidia">${base}</a></h2><div class="b_caption"><p>widgets original</p></div></li>`;
+    stub({ bing: [200, bing], startpage: [200, ''] });
+    const r = await search('widgets', { maxResults: 10, noCache: true });
+    const hits = r.results.filter((x) => x.title.startsWith('Nvidia smashes'));
+    expect(hits.length).toBe(1);
+    expect(hits[0].url).toContain('cnbc.com');
+  });
+
   it('soft budget: a hanging engine does not hold up results from live engines', async () => {
     vi.stubGlobal('fetch', async (url: any) => {
       const u = String(url);
