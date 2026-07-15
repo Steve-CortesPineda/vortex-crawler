@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { generateHeaders } from './antibot/headers.js';
 import { bm25ish, tokenize, NAV_RE } from './browse-relevance.js';
 import { GenericCache } from './cache/result-cache.js';
-import { sourceQuality, isSyndicationHost, extractResultDate, freshnessAdjust, HOMEPAGE_RE } from './source-rules.js';
+import { sourceQuality, isSyndicationHost, extractResultDate, freshnessAdjust, HOMEPAGE_RE, queryDomain, isTemporalQuery } from './source-rules.js';
 
 export interface SearchResult {
   title: string;
@@ -42,6 +42,9 @@ export interface SearchResponse {
   /** True when NO quality engine (google-session/brave/startpage) answered — results are Bing/Mojeek-only
    * and should be treated as low-confidence (prone to keyword-match junk). */
   lowConfidence?: boolean;
+  /** Fail-closed signal: low-confidence answer to a serious query (temporal news, AI, markets, technical
+   * docs). Callers must not present these results as authoritative — retry when a quality engine is back. */
+  qualityFailure?: boolean;
   timing: { fetchMs: number; totalMs: number };
 }
 
@@ -108,6 +111,12 @@ const SESSION_BUDGET_MS = 6000;
 const DEFAULT_ENGINES: SearchEngine[] = ['brave', 'startpage', 'bing', 'mojeek'];
 // With a proxy configured, the IP-blocked engines become viable again — widen the pool for stronger fusion.
 const PROXY_ENGINES: SearchEngine[] = ['startpage', 'bing', 'brave', 'duckduckgo', 'mojeek'];
+/** Reserve tier: with a session-backed quality engine in play (logged-in google-session), the fast tier
+ * only needs Bing for cheap agreement signal. Hitting Brave/Startpage/Mojeek on EVERY search is what
+ * burned this IP's reputation with all three (verified 2026-07-14: startpage serves its CAPTCHA page to
+ * any fingerprint from this IP under query pressure). Benching them while google-session is healthy lets
+ * their reputation recover, so they actually work when google-session is down and they're needed. */
+const SESSION_BACKED_ENGINES: SearchEngine[] = ['bing'];
 /** RRF constant. 60 is the value from the original Cormack et al. paper. */
 const RRF_K = 60;
 /** Weight of single-document relevance (title+snippet vs query) blended on top of RRF. Bumped from 0.04
@@ -131,6 +140,11 @@ const engineWeight = (e: string): number => ENGINE_WEIGHT[e] ?? 1.0;
 /** Penalty subtracted from a bare-homepage / nav result's score (specific queries only) — a homepage is
  * almost never the best answer to a real question. Sized to sink a homepage below a substantive match. */
 const HOMEPAGE_PENALTY = 0.02;
+const AUTHORITY_BACKFILL_MIN_QUALITY = 0.6;
+/** Results at or below this sourceQuality (social posts, low-trust mirrors) are held out of the top-N
+ * entirely while cleaner candidates exist — a linear score penalty is not enough when the junk carries
+ * strong RRF/relevance (e.g. a Facebook repost of the news outranking rank-6 wire coverage). */
+const JUNK_QUALITY_THRESHOLD = -0.3;
 const PER_ENGINE_TIMEOUT_MS = 6000;
 /** Soft latency budget: once ≥1 engine has returned results and this much time has passed, stop
  * waiting for stragglers (they're reported as status 'timeout'). Keeps one slow engine from
@@ -178,7 +192,7 @@ export function normalizeUrl(raw: string): string {
     const u = new URL(raw);
     u.hash = '';
     u.hostname = u.hostname.toLowerCase().replace(/^(www|m|amp)\./, '');
-    const drop = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'ref'];
+    const drop = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'msclkid', 'msockid', 'ref'];
     drop.forEach((p) => u.searchParams.delete(p));
     let s = u.toString();
     s = s.replace(/\/$/, '');
@@ -386,6 +400,34 @@ function finalScore(m: Merged, demoteHomepages: boolean): number {
   return s;
 }
 
+function hasAuthoritativeTop(merged: Map<string, Merged>, maxResults: number, perDomain: number, demoteHomepages: boolean): boolean {
+  return rankAndCap(merged, Math.max(3, Math.min(maxResults, 5)), perDomain, demoteHomepages)
+    .slice(0, 3)
+    .some((r) => (r.sourceQuality ?? 0) >= AUTHORITY_BACKFILL_MIN_QUALITY);
+}
+
+function trustedBackfillQuery(query: string): string | null {
+  if (!isTemporalQuery(query)) return null;
+  const qd = queryDomain(query);
+  const q = query.toLowerCase();
+  if (qd === 'ai') {
+    if (/\b(nvidia|nvda)\b/.test(q)) {
+      return `${query} (site:nvidia.com OR site:nvidianews.nvidia.com OR site:reuters.com OR site:bloomberg.com OR site:cnbc.com OR site:semianalysis.com)`;
+    }
+    if (/\b(anthropic|claude)\b/.test(q)) {
+      return `${query} (site:anthropic.com OR site:reuters.com OR site:bloomberg.com OR site:cnbc.com OR site:theverge.com OR site:techcrunch.com)`;
+    }
+    if (/\b(openai|chatgpt|gpt)\b/.test(q)) {
+      return `${query} (site:openai.com OR site:help.openai.com OR site:reuters.com OR site:bloomberg.com OR site:cnbc.com OR site:theverge.com OR site:techcrunch.com)`;
+    }
+    return `${query} (site:openai.com OR site:anthropic.com OR site:deepmind.google OR site:reuters.com OR site:bloomberg.com OR site:cnbc.com)`;
+  }
+  if (qd === 'markets') {
+    return `${query} (site:federalreserve.gov OR site:federalregister.gov OR site:fincen.gov OR site:sec.gov OR site:reuters.com OR site:bloomberg.com OR site:cnbc.com)`;
+  }
+  return null;
+}
+
 /** A 1–2 word query with no question/temporal markers is likely a site/brand lookup — keep its homepage. */
 function isNavigational(query: string): boolean {
   const words = query.trim().split(/\s+/);
@@ -450,7 +492,11 @@ function foldEngine(
 
 /** Final ordering: blended score desc, with a per-domain cap applied greedily (then top-up if short). */
 function rankAndCap(merged: Map<string, Merged>, maxResults: number, perDomain: number, demoteHomepages: boolean): SearchResult[] {
-  const sorted = [...merged.values()].sort((a, b) => finalScore(b, demoteHomepages) - finalScore(a, demoteHomepages));
+  const scored = [...merged.values()].sort((a, b) => finalScore(b, demoteHomepages) - finalScore(a, demoteHomepages));
+  const sorted = [
+    ...scored.filter((m) => m._quality > JUNK_QUALITY_THRESHOLD),
+    ...scored.filter((m) => m._quality <= JUNK_QUALITY_THRESHOLD),
+  ];
   const picked: Merged[] = [];
   const domainCount = new Map<string, number>();
   const overflow: Merged[] = [];
@@ -505,7 +551,11 @@ export async function search(query: string, options?: {
 }): Promise<SearchResponse> {
   const start = performance.now();
   const maxResults = options?.maxResults ?? 10;
-  const engines = options?.engines?.length ? options.engines : (proxiesConfigured() ? PROXY_ENGINES : DEFAULT_ENGINES);
+  const engines = options?.engines?.length
+    ? options.engines
+    : proxiesConfigured() ? PROXY_ENGINES
+    : options?.sessionEngines?.length ? SESSION_BACKED_ENGINES
+    : DEFAULT_ENGINES;
   const perDomain = options?.perDomain ?? DEFAULT_PER_DOMAIN;
   const terms = tokenize(query);
   const cacheKey = `${query} ${maxResults} ${options?.region || ''} ${options?.freshness || ''} ${engines.join(',')}`;
@@ -632,7 +682,7 @@ export async function search(query: string, options?: {
       const fb = await options.fallback(query, perEngine);
       if (fb.length) {
         usedFallback = true;
-        sources.push('google');
+        if (!sources.includes('google')) sources.push('google');
         foldEngine(merged, 'google', fb.map((r) => ({ title: r.title, url: r.url, snippet: '' })), terms, titleIndex);
         reports.push({ engine: 'google', status: 'ok', count: fb.length, ms: 0, note: 'stealth-chrome fallback' });
       } else {
@@ -643,11 +693,34 @@ export async function search(query: string, options?: {
     }
   }
 
+  const backfillQuery = options?.fallback
+    && trustedBackfillQuery(query)
+    && !hasAuthoritativeTop(merged, maxResults, perDomain, !isNavigational(query))
+    ? trustedBackfillQuery(query)
+    : null;
+  if (options?.fallback && backfillQuery) {
+    try {
+      const fb = await options.fallback(backfillQuery, perEngine);
+      if (fb.length) {
+        usedFallback = true;
+        if (!sources.includes('google')) sources.push('google');
+        foldEngine(merged, 'google', fb.map((r) => ({ title: r.title, url: r.url, snippet: '' })), terms, titleIndex);
+        reports.push({ engine: 'google', status: 'ok', count: fb.length, ms: 0, note: 'stealth-chrome trusted-source backfill' });
+      } else {
+        reports.push({ engine: 'google', status: 'zero', count: 0, ms: 0, note: 'trusted-source backfill returned 0' });
+      }
+    } catch (err) {
+      reports.push({ engine: 'google', status: 'error', count: 0, ms: 0, note: `trusted-source backfill: ${((err as Error)?.message || 'fallback error').slice(0, 52)}` });
+    }
+  }
+
   const results = rankAndCap(merged, maxResults, perDomain, !isNavigational(query));
 
   // Low confidence when NO quality engine answered — the list is only as good as Bing/Mojeek alone, which
   // keyword-matches junk. Surface this so callers don't treat weak results as authoritative.
   const lowConfidence = !sources.some((s) => QUALITY_ENGINES.has(s));
+  const seriousQuery = isTemporalQuery(query) || ['technical', 'ai', 'markets'].includes(queryDomain(query));
+  const qualityFailure = lowConfidence && seriousQuery;
 
   const response: SearchResponse = {
     query,
@@ -657,6 +730,7 @@ export async function search(query: string, options?: {
     engineReports: reports,
     usedFallback,
     lowConfidence,
+    qualityFailure,
     timing: { fetchMs, totalMs: performance.now() - start },
   };
   if (!options?.noCache) searchCache.set(cacheKey, response);

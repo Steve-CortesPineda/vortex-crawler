@@ -46,8 +46,8 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator --external undici",
-    "dev": "tsup src/index.ts --format esm --dts --watch --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator",
+    "build": "tsup src/index.ts --format esm --dts --clean --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator --external undici --external ws",
+    "dev": "tsup src/index.ts --format esm --dts --watch --external playwright --external patchright --external jsdom --external @mozilla/readability --external fingerprint-injector --external fingerprint-generator --external ws",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -57,7 +57,8 @@
     "murmurhash3js-revisited": "^3.0.0",
     "p-queue": "^8.0.0",
     "turndown": "^7.2.0",
-    "undici": "^8.5.0"
+    "undici": "^8.5.0",
+    "ws": "^8.21.0"
   },
   "optionalDependencies": {
     "@mozilla/readability": "^0.6.0",

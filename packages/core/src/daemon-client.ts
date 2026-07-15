@@ -75,7 +75,7 @@ export class VortexDaemonClient {
   }
   reach(url: string, allowArchive = true): Promise<unknown> { return this.post('/reach', { url, allowArchive }); }
   browse(query: string, opts?: Record<string, unknown>): Promise<unknown> { return this.post('/browse', { query, ...opts }); }
-  search(query: string, opts?: { maxResults?: number; recency?: string; browserFallback?: boolean }): Promise<unknown> {
+  search(query: string, opts?: { maxResults?: number; recency?: string; browserFallback?: boolean; rerank?: boolean; rerankTop?: number; youtube?: boolean; noCache?: boolean }): Promise<unknown> {
     return this.post('/search', { query, ...opts });
   }
   google(query: string, maxResults = 10): Promise<unknown> { return this.post('/google', { query, maxResults }); }

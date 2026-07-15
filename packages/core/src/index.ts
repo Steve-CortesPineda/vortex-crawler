@@ -31,7 +31,7 @@ export { PluginManager } from './plugin/plugin-manager.js';
 export type { VortexPlugin } from './plugin/types.js';
 
 // Search
-export { search, proxiesConfigured, sourceQuality } from './search.js';
+export { search, proxiesConfigured, sourceQuality, resetEngineCooldowns } from './search.js';
 export type { SearchResult, SearchResponse, SearchEngine, Freshness, EngineReport, EngineStatus } from './search.js';
 export { queryDomain, extractResultDate, freshnessAdjust, isTemporalQuery, sourceClass } from './source-rules.js';
 export type { QueryVertical, SourceClass } from './source-rules.js';

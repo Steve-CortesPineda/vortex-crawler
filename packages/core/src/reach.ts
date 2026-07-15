@@ -16,7 +16,7 @@ import { ocrAvailable, ocrUrl, ocrFile, looksOcrable } from './ocr/vision.js';
  * via a public mirror (Wayback/archive.today) — reading a public snapshot is not evading the live wall.
  */
 
-export type ReachStrategy = 'direct' | 'stealth-retry' | 'logged-in' | 'wayback' | 'archive-today' | 'reader' | 'ocr';
+export type ReachStrategy = 'cookie-fetch' | 'direct' | 'stealth-retry' | 'logged-in' | 'wayback' | 'archive-today' | 'reader' | 'ocr';
 export type PageClass = 'good' | 'captcha' | 'paywall-soft' | 'paywall-hard' | 'blocked' | 'thin';
 
 export type ReachOutcome =
@@ -28,6 +28,9 @@ export interface ReachOptions {
   agentBrowser: AgentBrowser;          // primary (typically natural profile)
   loggedInBrowser?: AgentBrowser;      // optional: the persistent logged-in profile
   proxyManager?: ProxyManager;         // used by the stealth-retry browser
+  /** VANTA extension backend — enables the cookie-fetch rung (logged-in, no-render). Structurally typed
+   * to avoid coupling reach() to the extension module. */
+  extBrowser?: { fetchExtract(url: string): Promise<ExtractResult | null> };
   ladder?: ReachStrategy[];
   minProse?: number;                   // "thin" threshold, default 200 (matches browse/agent-browser)
   allowArchive?: boolean;              // default true; gates wayback/archive/reader
@@ -35,7 +38,9 @@ export interface ReachOptions {
 
 const BLOCK_RE = /verify you are human|attention required|cloudflare|access denied|request blocked|enable javascript|unusual traffic|just a moment|checking your browser/i;
 const PAYWALL_RE = /subscribe to (read|continue)|already a subscriber|metered|this article is for subscribers|to continue reading|create a free account to|sign in to read/i;
-const DEFAULT_LADDER: ReachStrategy[] = ['direct', 'stealth-retry', 'logged-in', 'wayback', 'archive-today', 'reader', 'ocr'];
+// cookie-fetch first: if the VANTA extension is available, a logged-in no-render fetch recovers many
+// article bodies + soft paywalls instantly, before we spend a browser render on `direct`.
+const DEFAULT_LADDER: ReachStrategy[] = ['cookie-fetch', 'direct', 'stealth-retry', 'logged-in', 'wayback', 'archive-today', 'reader', 'ocr'];
 
 function prose(ex: ExtractResult): string {
   return ex.markdown.replace(/\[[^\]]*\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
@@ -109,6 +114,11 @@ export async function reach(opts: ReachOptions): Promise<ReachOutcome> {
       let ex: ExtractResult | null = null;
 
       switch (strategy) {
+        case 'cookie-fetch':
+          if (!opts.extBrowser) continue;
+          tried.push(strategy);
+          try { ex = await opts.extBrowser.fetchExtract(opts.url); } catch { ex = null; }
+          break;
         case 'direct':
           tried.push(strategy);
           ex = await tryRender(opts.agentBrowser, opts.url);

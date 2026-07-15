@@ -4,7 +4,7 @@ import micromatch from 'micromatch';
 import type { VortexConfig, FetchRequest, RenderTier } from './types/config.js';
 import type { CrawlResult, CrawlProgress, CrawlSummary, SitemapResult, PageMetadata } from './types/result.js';
 import { DEFAULT_CONFIG } from './types/config.js';
-import { AdaptiveFetcher } from './fetcher/adaptive-fetcher.js';
+import { AdaptiveFetcher, type CookieFetcher } from './fetcher/adaptive-fetcher.js';
 import { ContentCleaner } from './processor/content-cleaner.js';
 import { MarkdownConverter } from './processor/markdown-converter.js';
 import { TokenEstimator } from './processor/token-estimator.js';
@@ -49,11 +49,12 @@ export class VortexCrawler extends EventEmitter {
   private plugins: PluginManager;
   private rateLimiter: PerDomainRateLimiter;
 
-  constructor(config?: Partial<VortexConfig>) {
+  constructor(config?: Partial<VortexConfig>, cookieFetcher?: CookieFetcher) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config } as VortexConfig;
 
-    this.fetcher = new AdaptiveFetcher(this.config.rendering, this.config.timeout);
+    // Optional cookie-fetch backend (VANTA extension) — logged-in, no-render tier tried before http.
+    this.fetcher = new AdaptiveFetcher(this.config.rendering, this.config.timeout, cookieFetcher);
     this.cleaner = new ContentCleaner();
     this.converter = new MarkdownConverter();
     this.estimator = new TokenEstimator();

@@ -2,25 +2,44 @@ import type { FetchRequest, FetchResult, RenderTier, RenderingConfig } from '../
 import { HttpFetcher } from './http-fetcher.js';
 import { TierDetector } from './tier-detector.js';
 
+/** Minimal cookie-fetch backend (the VANTA extension) — logged-in, no-render HTML. Structurally typed. */
+export interface CookieFetcher { httpFetch(url: string, opts?: { timeoutMs?: number }): Promise<{ status: number; finalUrl: string; headers: Record<string, string>; body: string }>; }
+
 export class AdaptiveFetcher {
   private httpFetcher: HttpFetcher;
   private tierDetector: TierDetector;
   private config: RenderingConfig;
+  private cookieFetcher?: CookieFetcher;
 
   // Lazy-loaded fetchers
   private jsdomFetcher: { fetch: (req: FetchRequest) => Promise<FetchResult> } | null = null;
   private browserFetcher: { fetch: (req: FetchRequest) => Promise<FetchResult> } | null = null;
 
-  constructor(config: RenderingConfig, timeout: number) {
+  constructor(config: RenderingConfig, timeout: number, cookieFetcher?: CookieFetcher) {
     this.config = config;
     this.httpFetcher = new HttpFetcher(timeout);
     this.tierDetector = new TierDetector();
+    this.cookieFetcher = cookieFetcher;
   }
 
   async fetch(req: FetchRequest): Promise<FetchResult> {
     // If tier is forced, use that directly
     if (req.tier) {
       return this.fetchAtTier(req, req.tier);
+    }
+
+    // Cookie tier first (logged-in, no render) when a VANTA extension backend is available — recovers
+    // most article/authed pages instantly. Falls through to the normal ladder if it's thin/blocked.
+    if (this.cookieFetcher) {
+      try {
+        const r = await this.cookieFetcher.httpFetch(req.url, { timeoutMs: req.timeout });
+        if (r.status < 400 && r.body && r.body.length > 500 && /text\/html|xhtml/i.test(r.headers['content-type'] || 'text/html')) {
+          const post = this.tierDetector.postFetchScore(r.body, r.headers);
+          if (post.tier === 'http') { // static-enough content — no JS render needed
+            return { url: r.finalUrl || req.url, statusCode: r.status, headers: r.headers, html: r.body, tier: 'http', timing: { fetchMs: 0 } };
+          }
+        }
+      } catch { /* fall through to the normal flow */ }
     }
 
     // Auto-detect: start with pre-fetch prediction

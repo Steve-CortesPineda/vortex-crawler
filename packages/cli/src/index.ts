@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
-import { VortexCrawler, search } from '@stevecortesp/vortex-core';
+import { VortexCrawler, search, VortexDaemonClient } from '@stevecortesp/vortex-core';
 import type { RenderTier } from '@stevecortesp/vortex-core';
 
 const program = new Command();
@@ -181,16 +181,31 @@ program
 // ─── SEARCH ──────────────────────────────────────────
 program
   .command('search <query...>')
-  .description('Search the web via DuckDuckGo (no API key needed)')
+  .description('Search the web; uses the warm Vortex daemon + VANTA Google session when available')
   .option('-n, --max-results <n>', 'Maximum results', parseInt, 10)
+  .option('--recency <window>', 'Recency filter: day, week, month, year')
+  .option('--raw', 'Bypass the local browser daemon and use fetch engines only')
+  .option('--no-browser-fallback', 'Disable Google/VANTA browser fallback')
+  .option('--rerank-top <n>', 'Daemon content-rerank depth', parseInt, 4)
+  .option('--no-youtube', 'Disable YouTube vertical routing')
   .option('--json', 'Output as JSON')
   .action(async (queryParts: string[], opts) => {
     const query = queryParts.join(' ');
     const spinner = ora(`Searching: ${query}`).start();
 
     try {
-      const results = await search(query, { maxResults: opts.maxResults });
-      spinner.succeed(`Found ${results.totalResults} results (${results.timing.totalMs.toFixed(0)}ms)`);
+      const daemon = new VortexDaemonClient();
+      const useDaemon = !opts.raw && await daemon.healthy();
+      const results: any = useDaemon
+        ? await daemon.search(query, {
+            maxResults: opts.maxResults,
+            recency: opts.recency,
+            browserFallback: opts.browserFallback,
+            rerankTop: opts.rerankTop,
+            youtube: opts.youtube,
+          })
+        : await search(query, { maxResults: opts.maxResults, freshness: opts.recency });
+      spinner.succeed(`Found ${results.totalResults} results (${results.timing.totalMs.toFixed(0)}ms, ${useDaemon ? 'daemon' : 'raw'})`);
 
       if (opts.json) {
         console.log(JSON.stringify(results, null, 2));
@@ -199,6 +214,7 @@ program
         for (const r of results.results) {
           console.log(chalk.cyan.bold(r.title));
           console.log(chalk.dim(r.url));
+          if (r.engines?.length) console.log(chalk.dim(`engines: ${r.engines.join(', ')}${r.sourceQuality !== undefined ? ` · source ${r.sourceQuality}` : ''}`));
           if (r.snippet) console.log(r.snippet);
           console.log('');
         }
@@ -207,6 +223,73 @@ program
       spinner.fail('Search failed');
       console.error(chalk.red(err instanceof Error ? err.message : String(err)));
       process.exit(1);
+    }
+  });
+
+// ─── SEARCH BENCHMARK ───────────────────────────────
+program
+  .command('benchmark-search [queries...]')
+  .description('Compare raw Vortex search against daemon-backed VANTA/Google-session search')
+  .option('-n, --max-results <n>', 'Maximum results per query', parseInt, 6)
+  .option('--recency <window>', 'Recency filter: day, week, month, year', 'month')
+  .option('--json', 'Output machine-readable JSON')
+  .action(async (queryParts: string[], opts) => {
+    const queries = queryParts.length ? [queryParts.join(' ')] : [
+      'Federal Reserve anti money laundering proposal July 2026',
+      'Nvidia latest news July 2026 AI chips',
+      'Anthropic latest Claude news July 2026',
+      'MrBeast latest video July 2026',
+    ];
+    const daemon = new VortexDaemonClient();
+    const daemonUp = await daemon.healthy();
+    const rows: any[] = [];
+
+    for (const query of queries) {
+      const rawStart = Date.now();
+      const raw: any = await search(query, { maxResults: opts.maxResults, freshness: opts.recency, noCache: true });
+      rows.push({
+        mode: 'raw',
+        query,
+        ms: Date.now() - rawStart,
+        lowConfidence: raw.lowConfidence,
+        sources: raw.sources || [],
+        engineReports: raw.engineReports || [],
+        top: raw.results.slice(0, 3).map((r: any) => ({ title: r.title, url: r.url, engines: r.engines, score: r.score, sourceQuality: r.sourceQuality })),
+      });
+
+      if (daemonUp) {
+        const daemonStart = Date.now();
+        const rich: any = await daemon.search(query, { maxResults: opts.maxResults, recency: opts.recency, noCache: true, rerankTop: 4, youtube: true });
+        rows.push({
+          mode: 'daemon',
+          query,
+          ms: Date.now() - daemonStart,
+          lowConfidence: rich.lowConfidence,
+          sources: rich.sources || [],
+          vertical: rich.vertical,
+          reranked: rich.reranked,
+          engineReports: rich.engineReports || [],
+          top: rich.results.slice(0, 3).map((r: any) => ({ title: r.title, url: r.url, engines: r.engines, score: r.score, sourceQuality: r.sourceQuality })),
+        });
+      }
+    }
+
+    if (opts.json) {
+      console.log(JSON.stringify({ daemonUp, rows }, null, 2));
+      return;
+    }
+
+    console.log(chalk.bold(`Daemon: ${daemonUp ? 'up' : 'down'}`));
+    for (const row of rows) {
+      console.log('');
+      console.log(chalk.bold(`${row.mode.toUpperCase()} · ${row.query}`));
+      console.log(chalk.dim(`${row.ms}ms · sources: ${row.sources.join(', ') || 'none'} · lowConfidence: ${row.lowConfidence}${row.vertical ? ` · vertical: ${row.vertical}` : ''}${row.reranked ? ' · reranked' : ''}`));
+      for (const [i, r] of row.top.entries()) {
+        console.log(`${i + 1}. ${chalk.cyan(r.title)}`);
+        console.log(chalk.dim(`   ${r.url}`));
+      }
+      const health = row.engineReports.map((e: any) => `${e.engine}:${e.status}`).join(' ');
+      if (health) console.log(chalk.dim(`   health: ${health}`));
     }
   });
 

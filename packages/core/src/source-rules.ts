@@ -99,6 +99,7 @@ const LOW_TRUST = suffixMatcher([
   'express.co.uk', 'mirror.co.uk', 'ibtimes.com', 'ibtimes.co.in', 'ibtimes.co.uk',
   'marketbeat.com', '247wallst.com', 'beincrypto.com', 'analyticsinsight.net', 'geeky-gadgets.com',
   'gobankingrates.com', 'cheatsheet.com', 'techtimes.com', 'screenrant.com', 'slashgear.com',
+  'roic.ai', 'gate.com',
   'coinpedia.org', 'cryptopolitan.com', 'ambcrypto.com', 'u.today', 'coingape.com', 'tronweekly.com',
   'studocu.com', 'coursehero.com', 'scribd.com', 'slideshare.net', 'pinterest.com',
   'thetravel.com', 'traveltriangle.com', 'theculturetrip.com', 'thrillophilia.com',
@@ -133,6 +134,8 @@ export function queryDomain(query: string): QueryVertical {
 // ── Path shape helpers ────────────────────────────────────────────────────────
 export const HOMEPAGE_RE = /^https?:\/\/[^/]+\/?$/i;
 const GENERIC_PRIMARY_PATH = /^\/(company|about|products?|platform|pricing|careers?|contact|team|research|api|login|sign-?in|register)\/?$/i;
+const LOCALE_ROOT_PATH = /^\/[a-z]{2}(?:-[a-z]{2})?\/?$/i;
+const LEGACY_HOME_PATH = /^\/page\/home(?:\.html)?$/i;
 const PRIMARY_NEWS_PATH = /^\/(news|blog|press|newsevents|publications|reports|research\/[^/]+|announcements?|index\/[^/]+)\b/i;
 const PRIMARY_NEWS_HINT = /\b(news|pressreleases|release|blog|article|previewing|introducing|202\d)\b/i;
 /** Docs-looking hostname: docs.x.y / developer.x.y / learn.x.y (needs a real domain after the prefix —
@@ -251,7 +254,7 @@ export function sourceClass(url: string): SourceClass {
 
 // ── The scorer ────────────────────────────────────────────────────────────────
 /**
- * Source/domain authority for a URL given the query's vertical, in [-0.55, 1]. Blended into ranking with
+ * Source/domain authority for a URL given the query's vertical, in [-0.9, 1]. Blended into ranking with
  * a small weight — enough to lift primary sources and sink farms, never enough to beat strong relevance.
  */
 export function sourceQuality(url: string, query = ''): number {
@@ -260,18 +263,20 @@ export function sourceQuality(url: string, query = ''): number {
   const temporal = isTemporalQuery(query);
   const u = (() => { try { return new URL(url); } catch { return null; } })();
   const path = u?.pathname || '/';
-  const genericPrimaryPath = path === '/' || GENERIC_PRIMARY_PATH.test(path);
+  const hostName = u?.hostname || '';
+  const genericPrimaryPath = path === '/' || GENERIC_PRIMARY_PATH.test(path) || LOCALE_ROOT_PATH.test(path) || LEGACY_HOME_PATH.test(path);
   const primaryNewsPath = PRIMARY_NEWS_PATH.test(path) || PRIMARY_NEWS_HINT.test(path);
 
   // Technical: docs-first. Official docs ≫ code/Q&A ≫ everything else; tutorial farms sink.
   if (qd === 'technical') {
-    if (isOfficialDocsPath(host, path, query)) return 0.9;
+    if (isOfficialDocsPath(host, path, query)) return 1.0;
     if (TUTORIAL_FARMS(host)) return -0.25;
-    if (CODE_COMMUNITY(host)) return 0.5;
+    if (CODE_COMMUNITY(host)) return 0.45;
     if (WIRE_EDITORIAL(host) || SPECIALIST_EDITORIAL(host)) return 0.05;
   }
   // A lab/gov HOMEPAGE is a non-answer for a "latest news" query even though the domain is primary.
   if (temporal && genericPrimaryPath && (GOV_PRIMARY(host) || AI_PRIMARY(host))) return -0.2;
+  if (temporal && qd === 'ai' && /^(apps|account|login|support)\./i.test(hostName) && AI_PRIMARY(host)) return -0.15;
   if (GOV_PRIMARY(host)) return primaryNewsPath ? (qd === 'markets' || qd === 'travel' ? 1.0 : 0.8) : 0.35;
   if (AI_PRIMARY(host)) return primaryNewsPath ? (qd === 'ai' ? 1.0 : 0.75) : 0.35;
   // Investor-relations subdomains are the source of record for earnings/guidance queries.
@@ -282,7 +287,7 @@ export function sourceQuality(url: string, query = ''): number {
   if (isDocsish(host, path)) return 0.45; // docs still decent outside technical queries
   if (CODE_COMMUNITY(host)) return 0.45;
   if (SYNDICATION(host)) return -0.45;
-  if (LOW_TRUST(host)) return -0.55;
+  if (LOW_TRUST(host)) return -0.9;
   if (TUTORIAL_FARMS(host)) return -0.2;
   if (SOCIAL(host)) return qd === 'youtube' ? -0.05 : -0.5;
   if (HOMEPAGE_RE.test(url)) return -0.15;
