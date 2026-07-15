@@ -6,6 +6,41 @@ import type { RenderTier } from '@stevecortesp/vortex-core';
 
 const program = new Command();
 
+/** One-line plain-English ranking rationale for `search --explain`. */
+function explainWhy(r: { sourceClass?: string; sourceQuality?: number; engines?: string[]; publishedAt?: string }): string {
+  const parts: string[] = [];
+  const cls = r.sourceClass || 'other';
+  const CLASS_WHY: Record<string, string> = {
+    'gov': 'government/regulator primary source',
+    'ai-lab': 'AI-lab/vendor primary source',
+    'official-docs': 'official documentation',
+    'code': 'code hosting / developer Q&A',
+    'wire': 'wire service / serious editorial',
+    'specialist': 'specialist editorial',
+    'travel-booking': 'booking platform (positive for travel queries)',
+    'commerce-retailer': 'retailer (positive for commerce queries)',
+    'wiki-reference': 'encyclopedia — fine for definitions, penalized on temporal queries',
+    'forum-community': 'discussion community',
+    'stock-quote': 'quote/broker page — penalized on temporal news',
+    'app-store': 'app-store listing',
+    'job-board': 'job board',
+    'syndication': 'syndicated copy — original outlet preferred',
+    'low-trust': 'low-trust mirror/farm — deferred out of top ranks',
+    'tutorial-farm': 'SEO tutorial farm — penalized on technical queries',
+    'social': 'social post — deferred out of top ranks',
+    'youtube': 'YouTube',
+    'homepage': 'bare homepage — penalized for specific queries',
+    'other': 'unclassified source',
+  };
+  parts.push(CLASS_WHY[cls] || cls);
+  if ((r.engines?.length || 0) > 1) parts.push(`${r.engines!.length} engines agree`);
+  if (r.engines?.includes('google-session')) parts.push('found by logged-in Google');
+  const q = r.sourceQuality ?? 0;
+  if (q >= 0.6) parts.push('strong authority boost');
+  else if (q <= -0.3) parts.push('authority penalty');
+  return parts.join('; ');
+}
+
 program
   .name('vortex')
   .description('The web crawler that beats everything. Adaptive rendering, LLM-optimized output, MCP-native.')
@@ -188,6 +223,7 @@ program
   .option('--no-browser-fallback', 'Disable Google/VANTA browser fallback')
   .option('--rerank-top <n>', 'Daemon content-rerank depth', parseInt, 4)
   .option('--no-youtube', 'Disable YouTube vertical routing')
+  .option('--explain', 'Show per-result ranking factors (source class, quality, freshness, engines)')
   .option('--json', 'Output as JSON')
   .action(async (queryParts: string[], opts) => {
     const query = queryParts.join(' ');
@@ -207,23 +243,96 @@ program
         : await search(query, { maxResults: opts.maxResults, freshness: opts.recency });
       spinner.succeed(`Found ${results.totalResults} results (${results.timing.totalMs.toFixed(0)}ms, ${useDaemon ? 'daemon' : 'raw'})`);
 
+      if (results.qualityFailure) {
+        console.log(chalk.red.bold('LOW CONFIDENCE: no quality engine answered this serious query — results below are Bing/Mojeek-grade. Retry when google-session/daemon is healthy.'));
+      } else if (results.lowConfidence) {
+        console.log(chalk.yellow('low confidence: only fallback engines answered'));
+      }
       if (opts.json) {
         console.log(JSON.stringify(results, null, 2));
       } else {
         console.log('');
-        for (const r of results.results) {
-          console.log(chalk.cyan.bold(r.title));
+        results.results.forEach((r: any, i: number) => {
+          console.log(chalk.cyan.bold(`#${i + 1} ${r.title}`));
           console.log(chalk.dim(r.url));
-          if (r.engines?.length) console.log(chalk.dim(`engines: ${r.engines.join(', ')}${r.sourceQuality !== undefined ? ` · source ${r.sourceQuality}` : ''}`));
+          if (opts.explain) {
+            console.log(chalk.dim(`  score: ${r.score ?? '?'} · sourceQuality: ${r.sourceQuality ?? '?'} · class: ${r.sourceClass ?? 'other'}`));
+            console.log(chalk.dim(`  engines: ${r.engines?.join(', ') || '?'} · published: ${r.publishedAt || 'undated'}${r.rerankScore !== undefined ? ` · rerank: ${r.rerankScore}` : ''}`));
+            console.log(chalk.dim(`  why: ${explainWhy(r)}`));
+          } else if (r.engines?.length) {
+            console.log(chalk.dim(`engines: ${r.engines.join(', ')}${r.sourceQuality !== undefined ? ` · source ${r.sourceQuality}` : ''}`));
+          }
           if (r.snippet) console.log(r.snippet);
           console.log('');
-        }
+        });
       }
     } catch (err) {
       spinner.fail('Search failed');
       console.error(chalk.red(err instanceof Error ? err.message : String(err)));
       process.exit(1);
     }
+  });
+
+// ─── DOCTOR ─────────────────────────────────────────
+program
+  .command('doctor')
+  .description('Diagnose the full Vortex stack: daemon, bridge, google-session, fetch engines. Prints exact fixes.')
+  .action(async () => {
+    const ok = (m: string) => console.log(chalk.green('  ✓'), m);
+    const bad = (m: string, fix?: string) => { console.log(chalk.red('  ✗'), m); if (fix) console.log(chalk.yellow('    fix:'), fix); };
+    const warn = (m: string) => console.log(chalk.yellow('  ⚠'), m);
+
+    console.log(chalk.bold('\nVortex doctor\n'));
+
+    // 1. Runtime
+    const major = Number(process.versions.node.split('.')[0]);
+    major >= 18 ? ok(`node ${process.versions.node}`) : bad(`node ${process.versions.node} too old`, 'install Node 18+');
+
+    // 2. Daemon HTTP
+    const base = process.env.VORTEX_DAEMON_URL || 'http://127.0.0.1:4477';
+    let health: any = null;
+    try {
+      const res = await fetch(`${base}/health`, { signal: AbortSignal.timeout(2000) });
+      health = await res.json();
+    } catch { /* handled below */ }
+    if (!health?.ok) {
+      bad(`daemon not reachable at ${base}`,
+        'launchctl kickstart -k gui/$(id -u)/com.avanti.vortex-browser-daemon  (or: node browser-daemon.mjs)');
+    } else {
+      ok(`daemon alive at ${base} (uptime ${Math.round((health.uptimeMs || 0) / 1000)}s, profile ${health.profile || '?'})`);
+      // 3. Bridge
+      if (health.bridge?.connected) {
+        ok(`VANTA bridge connected (profile ${health.bridge.profile}, ${health.bridge.tabs} tab(s))`);
+      } else {
+        bad('VANTA bridge NOT connected — google-session unavailable, search quality degraded',
+          'open Chrome with the vanta profile so the VANTA extension reconnects; check daemon logs');
+      }
+    }
+
+    // 4. google-session + engine health via one live serious search
+    console.log(chalk.bold('\nEngines (live probe)\n'));
+    try {
+      const daemon = new VortexDaemonClient();
+      const useDaemon = health?.ok && await daemon.healthy();
+      const r: any = useDaemon
+        ? await daemon.search('Anthropic latest Claude news', { maxResults: 5, noCache: true })
+        : await search('Anthropic latest Claude news', { maxResults: 5, noCache: true });
+      for (const e of r.engineReports || []) {
+        if (e.status === 'ok') ok(`${e.engine}: ok (${e.count} results, ${e.ms}ms)`);
+        else if (/cooldown|benched/.test(e.note || '')) warn(`${e.engine}: ${e.note}`);
+        else bad(`${e.engine}: ${e.status}${e.note ? ` — ${e.note}` : ''}`);
+      }
+      const gs = (r.sources || []).includes('google-session');
+      gs ? ok('google-session answered — quality path healthy')
+         : bad('google-session did NOT answer', 'check bridge above; verify Chrome vanta profile is logged into Google');
+      if (r.qualityFailure) bad('qualityFailure=true on the probe — serious queries are degraded right now');
+      else if (r.lowConfidence) warn('lowConfidence=true on the probe');
+      else ok('confidence: full');
+      console.log(chalk.dim(`\n  probe latency: ${Math.round(r.timing?.totalMs || 0)}ms · backend: ${useDaemon ? 'daemon' : 'raw in-process'}`));
+    } catch (err) {
+      bad(`live search probe failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    console.log('');
   });
 
 // ─── SEARCH BENCHMARK ───────────────────────────────

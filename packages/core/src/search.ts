@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { generateHeaders } from './antibot/headers.js';
 import { bm25ish, tokenize, NAV_RE } from './browse-relevance.js';
 import { GenericCache } from './cache/result-cache.js';
-import { sourceQuality, isSyndicationHost, extractResultDate, freshnessAdjust, HOMEPAGE_RE, queryDomain, isTemporalQuery } from './source-rules.js';
+import { sourceQuality, sourceClass, isSyndicationHost, extractResultDate, freshnessAdjust, HOMEPAGE_RE, queryDomain, isTemporalQuery } from './source-rules.js';
 
 export interface SearchResult {
   title: string;
@@ -14,6 +14,8 @@ export interface SearchResult {
   score?: number;
   /** Source/domain quality adjustment used for ranking. Higher = more authoritative for the query. */
   sourceQuality?: number;
+  /** Query-independent class of the source site (official-docs, wire, travel-booking, low-trust, ...). */
+  sourceClass?: string;
   /** Best-effort publish date (ISO yyyy-mm-dd) extracted from the snippet or URL; used for staleness penalties. */
   publishedAt?: string;
 }
@@ -192,7 +194,12 @@ export function normalizeUrl(raw: string): string {
     const u = new URL(raw);
     u.hash = '';
     u.hostname = u.hostname.toLowerCase().replace(/^(www|m|amp)\./, '');
-    const drop = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'msclkid', 'msockid', 'ref'];
+    const drop = [
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'msclkid', 'msockid', 'ref',
+      // second wave (2026-07): each of these split one article into duplicate top-N slots on some engine
+      'spm', 'mc_cid', 'mc_eid', 'cmpid', 'ocid', 'ito', 'outputType', 'guccounter', 'ref_src', 'ref_url',
+      'igshid', 'si', 'ved', 'usg', 'sca_esv', 'ei', 'sourceid', 'smid', 'ncid', 'cid',
+    ];
     drop.forEach((p) => u.searchParams.delete(p));
     let s = u.toString();
     s = s.replace(/\/$/, '');
@@ -520,6 +527,7 @@ function rankAndCap(merged: Map<string, Merged>, maxResults: number, perDomain: 
     engines: [...m._engines],
     score: Number(finalScore(m, demoteHomepages).toFixed(4)),
     sourceQuality: Number(m._quality.toFixed(3)),
+    sourceClass: sourceClass(m.url),
     publishedAt: m.publishedAt,
   }));
 }
@@ -580,6 +588,12 @@ export async function search(query: string, options?: {
     const cd = breakerCooldownMs(e);
     if (cd > 0) reports.push({ engine: e, status: 'blocked', count: 0, ms: 0, note: `cooldown ${Math.ceil(cd / 1000)}s (recent bot-wall)` });
     else active.push(e);
+  }
+  // Surface the reserve tier in reports — a benched engine is a policy choice, not a failure.
+  if (engines === SESSION_BACKED_ENGINES) {
+    for (const e of DEFAULT_ENGINES) {
+      if (!engines.includes(e)) reports.push({ engine: e, status: 'zero', count: 0, ms: 0, note: 'benched (reserve tier — session engine active)' });
+    }
   }
 
   // Kick off session engines (google-session etc.) CONCURRENTLY with the fetch engines. They're slower

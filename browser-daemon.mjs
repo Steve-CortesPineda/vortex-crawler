@@ -459,12 +459,18 @@ const RERANK_TOP = 4;
 const RERANK_WEIGHT = 0.05;      // how hard content-relevance moves the fused score
 const RERANK_SOURCE_WEIGHT = 0.025; // keep source-of-record pages above copied/reposted prose
 const RERANK_THIN_PENALTY = 0.03; // extra demotion for pages with almost no real prose (homepages/walls)
+// Hard wall-clock cap on the rerank's page reads. One slow docs host was holding /search for 30s+;
+// rerank is a top-N polish, never worth more than a few seconds — on timeout the fused order stands.
+const RERANK_BUDGET_MS = 6000;
 async function contentRerank(query, resp, topN = RERANK_TOP) {
   const terms = tokenize(query);
   const limit = Math.max(1, Math.min(Number(topN) || RERANK_TOP, 8));
   const top = resp.results.slice(0, limit);
   const rest = resp.results.slice(limit);
-  const extracts = await extBrowser.parallelExtract(top.map((r) => r.url), { settleMs: 800 });
+  const extracts = await Promise.race([
+    extBrowser.parallelExtract(top.map((r) => r.url), { settleMs: 800 }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('rerank budget exceeded')), RERANK_BUDGET_MS)),
+  ]);
   const rescored = top.map((r, i) => {
     const prose = stripMarkdownLinks(extracts[i]?.markdown || '');
     // Real page-content relevance to the query (same scorer the tree/relevance gate use).

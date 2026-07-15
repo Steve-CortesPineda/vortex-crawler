@@ -111,6 +111,46 @@ const SOCIAL = suffixMatcher([
   'tiktok.com', 'reddit.com',
 ]);
 
+/** Hotel/flight booking + review platforms — the positive class for travel queries (a hotel query
+ * answered without one of these is answered badly). */
+const TRAVEL_BOOKING = suffixMatcher([
+  'booking.com', 'agoda.com', 'expedia.com', 'hotels.com', 'kayak.com', 'tripadvisor.com',
+  'skyscanner.com', 'skyscanner.net', 'trip.com', 'hostelworld.com', 'airbnb.com', 'vrbo.com',
+  'priceline.com', 'orbitz.com', 'travelocity.com', 'marriott.com', 'hilton.com', 'hyatt.com', 'ihg.com',
+]);
+
+/** Retailers/marketplaces — positive for commerce queries, noise elsewhere. */
+const COMMERCE_RETAILER = suffixMatcher([
+  'amazon.com', 'ebay.com', 'walmart.com', 'target.com', 'bestbuy.com', 'newegg.com',
+  'bhphotovideo.com', 'homedepot.com', 'lowes.com', 'costco.com', 'aliexpress.com', 'etsy.com',
+]);
+
+/** Encyclopedic reference — fine for definitional queries, a non-answer for "latest news". */
+const WIKI_REFERENCE = suffixMatcher([
+  'wikipedia.org', 'wiktionary.org', 'wikidata.org', 'britannica.com',
+]);
+
+/** Discussion communities distinct from SOCIAL — modest positive signal on technical queries. */
+const FORUM_COMMUNITY = suffixMatcher([
+  'news.ycombinator.com', 'quora.com', 'lobste.rs', 'community.letsencrypt.org',
+]);
+
+/** Retail-broker / quote-page hosts — a stock QUOTE is not news; they crowded NVIDIA temporal queries. */
+const STOCK_QUOTE = suffixMatcher([
+  'robinhood.com', 'webull.com', 'stockanalysis.com', 'barchart.com', 'tipranks.com',
+  'simplywall.st', 'zacks.com', 'marketwatch.com', 'investing.com',
+]);
+
+/** App stores — driver/app listing pages keyword-match product queries without answering them. */
+const APP_STORE = suffixMatcher([
+  'apps.apple.com', 'play.google.com', 'apps.microsoft.com', 'chromewebstore.google.com',
+]);
+
+/** Job boards — outrank real answers on company-name queries. */
+const JOB_BOARD = suffixMatcher([
+  'indeed.com', 'glassdoor.com', 'ziprecruiter.com', 'lever.co', 'greenhouse.io', 'wellfound.com',
+]);
+
 // ── Query verticals ───────────────────────────────────────────────────────────
 export type QueryVertical = 'technical' | 'ai' | 'markets' | 'youtube' | 'travel' | 'commerce' | 'general';
 
@@ -228,7 +268,9 @@ export function freshnessAdjust(query: string, dateIso: string | null, now: Date
 // ── Source classification (for the benchmark harness + diagnostics) ──────────
 export type SourceClass =
   | 'gov' | 'ai-lab' | 'official-docs' | 'code' | 'wire' | 'specialist'
-  | 'syndication' | 'low-trust' | 'tutorial-farm' | 'social' | 'youtube' | 'homepage' | 'other';
+  | 'syndication' | 'low-trust' | 'tutorial-farm' | 'social' | 'youtube' | 'homepage'
+  | 'travel-booking' | 'commerce-retailer' | 'wiki-reference' | 'forum-community'
+  | 'stock-quote' | 'app-store' | 'job-board' | 'other';
 
 /** Query-independent class of a URL's source — what KIND of site this is. The benchmark asserts on
  * classes ("a technical query's top-3 must include official-docs, never tutorial-farm") so expectations
@@ -248,6 +290,13 @@ export function sourceClass(url: string): SourceClass {
   if (SYNDICATION(host)) return 'syndication';
   if (LOW_TRUST(host)) return 'low-trust';
   if (SOCIAL(host)) return 'social';
+  if (TRAVEL_BOOKING(host)) return 'travel-booking';
+  if (COMMERCE_RETAILER(host)) return 'commerce-retailer';
+  if (WIKI_REFERENCE(host)) return 'wiki-reference';
+  if (FORUM_COMMUNITY(host)) return 'forum-community';
+  if (STOCK_QUOTE(host)) return 'stock-quote';
+  if (APP_STORE(host)) return 'app-store';
+  if (JOB_BOARD(host)) return 'job-board';
   if (HOMEPAGE_RE.test(url)) return 'homepage';
   return 'other';
 }
@@ -284,6 +333,17 @@ export function sourceQuality(url: string, query = ''): number {
   if (qd === 'youtube' && host === 'youtube.com' && !genericPrimaryPath) return 0.8;
   if (WIRE_EDITORIAL(host)) return 0.65;
   if (SPECIALIST_EDITORIAL(host)) return 0.35;
+  // Vertical positives: the booking/retail platforms ARE the answer for their own verticals.
+  if (TRAVEL_BOOKING(host)) return qd === 'travel' ? 0.8 : 0;
+  if (COMMERCE_RETAILER(host)) return qd === 'commerce' ? 0.7 : 0;
+  // Encyclopedias answer "what is X", not "what happened to X this week" — the Bing-only failure mode
+  // was Wikipedia crowding the top of every serious temporal query.
+  if (WIKI_REFERENCE(host)) return temporal ? -0.3 : 0.25;
+  // A quote/broker page is a non-answer for temporal news ("NVIDIA chip delay" → Robinhood quote page).
+  if (STOCK_QUOTE(host)) return temporal ? -0.4 : 0.1;
+  if (APP_STORE(host)) return /\b(app|download|extension|install)\b/i.test(query) ? 0.4 : -0.35;
+  if (JOB_BOARD(host)) return /\b(job|jobs|hiring|salary|career)\b/i.test(query) ? 0.5 : -0.4;
+  if (FORUM_COMMUNITY(host)) return qd === 'technical' ? 0.2 : 0.05;
   if (isDocsish(host, path)) return 0.45; // docs still decent outside technical queries
   if (CODE_COMMUNITY(host)) return 0.45;
   if (SYNDICATION(host)) return -0.45;
