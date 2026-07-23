@@ -17,6 +17,12 @@ describe('entity matching', () => {
     const m = compileMatchers({ name: 'OpenAI', type: 'org', aliases: ['GPT-5'] });
     expect(matchEntity('benchmarks for GPT-5 leaked', m)).toBe(true);
   });
+  it('matches names ending in accented chars (\\b silently fails there)', () => {
+    const m = compileMatchers({ name: 'Todd Beaupré', type: 'person' });
+    expect(matchEntity('YouTube exec Todd Beaupré explains the algorithm', m)).toBe(true);
+    expect(matchEntity('Todd Beaupré, in an interview', m)).toBe(true);
+    expect(matchEntity('the Todd Beaupréan theory', m)).toBe(false); // boundary still enforced past the accent
+  });
 });
 
 describe('pruneMentions', () => {

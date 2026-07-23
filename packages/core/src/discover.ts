@@ -102,7 +102,7 @@ const DOMAIN_QUERIES: Record<DomainKey, string[]> = {
   crypto: ['cryptocurrency bitcoin record milestone {M} {Y}', 'major crypto announcement {M} {Y}'],
 };
 
-export interface DomainItem { domain: DomainKey; feed: string; title: string; url: string; date?: string; }
+export interface DomainItem { domain: DomainKey; feed: string; title: string; url: string; date?: string; snippet?: string; }
 export interface DiscoverDomainResult {
   source: string;
   domains: DomainKey[];
@@ -125,9 +125,9 @@ function tag(block: string, name: string): string | undefined {
   return m ? m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/<[^>]+>/g, '').trim() : undefined;
 }
 
-/** Parse RSS <item> and Atom <entry> into {title,url,date}. */
-function parseFeed(xml: string, max: number): { title: string; url: string; date?: string }[] {
-  const out: { title: string; url: string; date?: string }[] = [];
+/** Parse RSS <item> and Atom <entry> into {title,url,date,snippet}. */
+function parseFeed(xml: string, max: number): { title: string; url: string; date?: string; snippet?: string }[] {
+  const out: { title: string; url: string; date?: string; snippet?: string }[] = [];
   const blocks = xml.match(/<(item|entry)[\s\S]*?<\/(item|entry)>/gi) || [];
   for (const blk of blocks) {
     if (out.length >= max) break;
@@ -137,7 +137,10 @@ function parseFeed(xml: string, max: number): { title: string; url: string; date
     const rss = tag(blk, 'link') || blk.match(/<link>([\s\S]*?)<\/link>/i)?.[1]?.trim();
     const url = (atom || rss || '').replace(/<!\[CDATA\[|\]\]>/g, '').trim();
     const date = tag(blk, 'pubDate') || tag(blk, 'published') || tag(blk, 'updated') || tag(blk, 'dc:date');
-    if (title && url && url.startsWith('http')) out.push({ title, url, date });
+    // Body snippet — RSS <description> / Atom <summary>/<content>. Downstream matchers (tracker) match
+    // on title+snippet, so dropping this made feed items title-only and blind to in-body entity mentions.
+    const snippet = (tag(blk, 'description') || tag(blk, 'summary') || tag(blk, 'content') || '').replace(/\s+/g, ' ').slice(0, 400) || undefined;
+    if (title && url && url.startsWith('http')) out.push({ title, url, date, snippet });
   }
   return out;
 }
@@ -168,7 +171,7 @@ export async function discoverDomain(_b: AgentBrowser, opts: DiscoverDomainOptio
       const key = it.url.replace(/[?#].*$/, '');
       if (seen.has(key)) continue;
       seen.add(key);
-      items[domain].push({ domain, feed, title: it.title, url: it.url, date: it.date });
+      items[domain].push({ domain, feed, title: it.title, url: it.url, date: it.date, snippet: it.snippet });
       totalItems++;
     }
   }

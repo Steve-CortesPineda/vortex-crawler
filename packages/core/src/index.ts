@@ -64,6 +64,10 @@ export type { DiscoverResult, DiscoverOptions, DiscoveredEvent, DiscoverDomainRe
 export { track, setWatchlist, getWatchlist, DEFAULT_WATCHLIST } from './tracker.js';
 export type { WatchEntity, TrackedMention, TrackDigest, TrackOptions, EntityType } from './tracker.js';
 
+// Distress (primary-source "Delisted lead engine" — SEC/NYSE/Nasdaq/CourtListener/HN)
+export { fetchDistressLeads } from './distress.js';
+export type { DistressLead, DistressState, DistressKind } from './distress.js';
+
 // VANTA extension bridge (real-Chrome control via MV3 extension — cookie-fetch tier + parallel tab pool)
 export { BridgeServer, ExtensionBrowser, TabPool, tierFor, assertAllowed, policySnapshot, BRIDGE_PROTOCOL_VERSION } from './extension-bridge/index.js';
 export type { BridgeServerOptions, TabPoolOptions, DomainTier, BridgeOp, ActStep, ExtensionExtractResult, ExtensionActResult } from './extension-bridge/index.js';
