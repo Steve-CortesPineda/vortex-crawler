@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { AgentBrowser } from './agent-browser.js';
 import { search } from './search.js';
 import { discoverDomain, type DomainKey } from './discover.js';
+import { sourceClass, type SourceClass } from './source-rules.js';
 
 /**
  * tracker — a local "oracle": you name entities ONCE (a watchlist) and it tracks them over time,
@@ -141,9 +142,14 @@ export async function track(b: AgentBrowser, opts: TrackOptions = {}): Promise<T
   }
 
   // 3) Match (title + snippet, word-boundary) → keep NEW → persist.
+  // Junk gate: a mention sweep is always a temporal news query, so quote pages and farms are never
+  // the answer — drop them by source class before they enter the store (store entries are permanent
+  // dedupe keys, so a junk URL admitted once suppresses nothing useful but pollutes every digest).
+  const JUNK_CLASSES = new Set<SourceClass>(['low-trust', 'syndication', 'tutorial-farm', 'stock-quote']);
   const matchers = new Map(watchlist.map((e) => [e.name, compileMatchers(e)] as const));
   const newByEntity: Record<string, TrackedMention[]> = {};
   for (const c of candidates) {
+    if (JUNK_CLASSES.has(sourceClass(c.url))) continue;
     const haystack = `${c.title} ${c.snippet || ''}`;
     for (const e of watchlist) {
       if (!matchEntity(haystack, matchers.get(e.name)!)) continue;

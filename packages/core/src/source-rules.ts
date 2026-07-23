@@ -97,7 +97,7 @@ export function isSyndicationHost(host: string): boolean { return SYNDICATION(ho
 const LOW_TRUST = suffixMatcher([
   'fandom.com', 'cloudwards.net', 'dailymail.com', 'dailymail.co.uk', 'the-sun.com', 'thesun.co.uk',
   'express.co.uk', 'mirror.co.uk', 'ibtimes.com', 'ibtimes.co.in', 'ibtimes.co.uk',
-  'marketbeat.com', '247wallst.com', 'beincrypto.com', 'analyticsinsight.net', 'geeky-gadgets.com',
+  'marketbeat.com', '247wallst.com', 'beincrypto.com', 'clearank.com', 'analyticsinsight.net', 'geeky-gadgets.com',
   'gobankingrates.com', 'cheatsheet.com', 'techtimes.com', 'screenrant.com', 'slashgear.com',
   'roic.ai', 'gate.com',
   'coinpedia.org', 'cryptopolitan.com', 'ambcrypto.com', 'u.today', 'coingape.com', 'tronweekly.com',
