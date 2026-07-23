@@ -137,6 +137,12 @@ async function edgar8k301(sinceDate: string, endDate: string, seen: Set<string>)
 }
 
 // ── 4) CourtListener — fresh Chapter 11 filings in the big corporate-bankruptcy venues ──────────
+/** The big-4 venues still carry personal and small-business Chapter 11s ("Margaret Seide"). Only a
+ * corporate-looking debtor is a Delisted story lead — everything else stays in the digest at normal
+ * priority so it never triggers a push. Suffix heuristic, not perfect: a corp debtor filing without
+ * its suffix demotes to normal (still visible), never disappears. */
+const CORPORATE_DEBTOR = /\b(LLC|L\.L\.C\.|Inc\.?|Corp\.?|Corporation|Company|Co\.|Ltd\.?|LP|L\.P\.|LLP|PLC|Holdings?|Group|Partners|Enterprises?|Industries|International|Brands?|Technolog(y|ies)|Pharma\w*|Capital|Fund|Restaurants?|Stores?|Airlines?|Motors?|Solutions|Systems|Services|Realty|Properties|Resources|Energy|Media|Networks?)\b/i;
+
 async function courtListenerCh11(sinceDate: string, seen: Set<string>): Promise<{ leads: DistressLead[]; newest?: string }> {
   const j = await getJson<any>(
     'https://www.courtlistener.com/api/rest/v4/search/?type=d&q=chapter%3A11&order_by=dateFiled%20desc&court=deb%20nysb%20txsb%20njb',
@@ -162,7 +168,7 @@ async function courtListenerCh11(sinceDate: string, seen: Set<string>): Promise<
       date: dateFiled,
       source: 'courtlistener',
       kind: 'ch11',
-      priority: 'high',
+      priority: CORPORATE_DEBTOR.test(r.caseName || '') ? 'high' : 'normal',
       entity: 'corporate bankruptcy',
     });
   }

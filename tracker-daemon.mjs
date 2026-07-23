@@ -146,12 +146,15 @@ try {
   await writeFile(DIGEST, md);
   await appendFile(LOG, JSON.stringify({ ranAt: digest.ranAt, newMentions: digest.newMentions, distress: distressCount, byEntity: Object.fromEntries(Object.entries(digest.byEntity).map(([e, v]) => [e, v.new.length])) }) + '\n');
 
-  // Push policy (Steve-approved 2026-07-23): urgent-only. Push iff >=1 high-priority item; body is
-  // the high items only. Everything else still lands in the digest + KB for the 7am brief.
+  // Push policy (Steve-approved 2026-07-23): urgent-only. A push means "worth interrupting Steve" —
+  // that's primary-source distress leads and gov filings, NOT fresh wire coverage of AI labs (those
+  // stay high in the digest and ride the 7am brief; without this filter every run with a new
+  // TechCrunch story would buzz).
   const high = collectHigh(digest);
+  const pushable = high.filter((m) => (m.source || '').startsWith('distress:') || m.sourceClass === 'gov');
   const parts = [];
-  if (high.length) parts.push(await pushNtfy(high));
-  else parts.push('no high-priority - no push');
+  if (pushable.length) parts.push(await pushNtfy(pushable));
+  else parts.push(high.length ? `${high.length} high (none push-worthy) - no push` : 'no high-priority - no push');
   if (digest.newMentions > 0) parts.push(await writeKb(digest, md));
   const delivered = parts.join(' · ');
 
