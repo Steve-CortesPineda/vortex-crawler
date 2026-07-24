@@ -97,8 +97,11 @@ async function edgarCurrent(kind: 'form25' | 'form15', seen: Set<string>): Promi
     if (!title || !url || !accession) return;
     if (seen.has(accession)) return;
     seen.add(accession);
-    // 25-NSE = EXCHANGE-initiated (involuntary) removal — the strongest downfall signal.
-    const priority: DistressLead['priority'] = kind === 'form25' && title.startsWith('25-NSE') ? 'high' : 'normal';
+    // 25-NSE = EXCHANGE-initiated (involuntary) removal — the strongest downfall signal. Except for
+    // fund vehicles: ETF/trust share-class delistings are routine plumbing, not company downfalls
+    // (live data: "SCHWAB STRATEGIC TRUST", "Exchange Listed Funds Trust" pushed as high on day 1).
+    const fundVehicle = /\b(Trust|Funds?|ETF|Portfolio|Index|Receivables|Depositor)\b/i.test(title);
+    const priority: DistressLead['priority'] = kind === 'form25' && title.startsWith('25-NSE') && !fundVehicle ? 'high' : 'normal';
     const date = ($e.find('updated').text().trim() || '').slice(0, 10) || undefined;
     leads.push({ title, url, date, source: 'sec:getcurrent', kind, priority, entity: 'stock delisting' });
   });
@@ -143,7 +146,27 @@ async function edgar8k301(sinceDate: string, endDate: string, seen: Set<string>)
  * its suffix demotes to normal (still visible), never disappears. */
 const CORPORATE_DEBTOR = /\b(LLC|L\.L\.C\.|Inc\.?|Corp\.?|Corporation|Company|Co\.|Ltd\.?|LP|L\.P\.|LLP|PLC|Holdings?|Group|Partners|Enterprises?|Industries|International|Brands?|Technolog(y|ies)|Pharma\w*|Capital|Fund|Restaurants?|Stores?|Airlines?|Motors?|Solutions|Systems|Services|Realty|Properties|Resources|Energy|Media|Networks?)\b/i;
 
-async function courtListenerCh11(sinceDate: string, seen: Set<string>): Promise<{ leads: DistressLead[]; newest?: string }> {
+/** Normalize a company name for cross-source matching: lowercase, strip punctuation and the legal
+ * suffix tokens, collapse whitespace — "Above Food Ingredients Inc." ≈ "ABOVE FOOD INGREDIENTS". */
+export function normalizeIssuer(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\b(incorporated|inc|corporation|corp|company|co|limited|ltd|llc|llp|lp|plc|holdings?|group)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function issuerMatch(caseName: string, knownIssuers: Set<string>): boolean {
+  const c = normalizeIssuer(caseName);
+  if (c.length < 6) return false;
+  for (const k of knownIssuers) {
+    if (k.length < 6) continue;
+    if (c.startsWith(k) || k.startsWith(c)) return true;
+  }
+  return false;
+}
+
+async function courtListenerCh11(sinceDate: string, seen: Set<string>, knownIssuers: Set<string>): Promise<{ leads: DistressLead[]; newest?: string }> {
   const j = await getJson<any>(
     'https://www.courtlistener.com/api/rest/v4/search/?type=d&q=chapter%3A11&order_by=dateFiled%20desc&court=deb%20nysb%20txsb%20njb',
     { 'User-Agent': CHROME_UA },
@@ -168,7 +191,10 @@ async function courtListenerCh11(sinceDate: string, seen: Set<string>): Promise<
       date: dateFiled,
       source: 'courtlistener',
       kind: 'ch11',
-      priority: CORPORATE_DEBTOR.test(r.caseName || '') ? 'high' : 'normal',
+      // High = interrupt-worthy: a debtor already on an exchange noncompliance list is a LISTED
+      // company collapsing (the downfall-timeline signal). Corporate-suffixed strangers proved to
+      // be shell/real-estate noise on day 1 ("Costello Properties") — digest-only.
+      priority: CORPORATE_DEBTOR.test(r.caseName || '') && issuerMatch(r.caseName || '', knownIssuers) ? 'high' : 'normal',
       entity: 'corporate bankruptcy',
     });
   }
@@ -337,11 +363,16 @@ export async function fetchDistressLeads(state: DistressState): Promise<{ leads:
   } catch { /* keep prior lastFtsPoll so the window re-covers the gap next run */ }
   next.edgarSeen = cap([...edgarSeen], 500);
 
-  // 4) CourtListener Chapter 11
+  // 4) CourtListener Chapter 11 — cross-matched against the exchange noncompliance snapshots so
+  // only already-distressed LISTED issuers rate high (issuer name = first pipe segment of each key).
   try {
     const ch11Seen = new Set(state.ch11Seen || []);
     const since = state.lastCh11Poll || daysAgo(3);
-    const { leads: ch, newest } = await courtListenerCh11(since, ch11Seen);
+    const knownIssuers = new Set(
+      [...(state.nyseKeys || []), ...(state.nasdaqDeficientKeys || []), ...(state.nasdaqSuspendedKeys || [])]
+        .map((k) => normalizeIssuer(k.split('|')[0])).filter((n) => n.length >= 6),
+    );
+    const { leads: ch, newest } = await courtListenerCh11(since, ch11Seen, knownIssuers);
     leads.push(...ch);
     if (newest) next.lastCh11Poll = newest;
     next.ch11Seen = cap([...ch11Seen], 300);
