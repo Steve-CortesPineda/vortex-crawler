@@ -109,12 +109,21 @@ async function edgarCurrent(kind: 'form25' | 'form15', seen: Set<string>): Promi
 }
 
 // ── 3) EDGAR full-text search — 8-K Item 3.01 (notice of delisting / listing-standard failure) ──
+// Item 3.01 covers BOTH deficiency notices AND routine transfer-of-listing in de-SPAC closings —
+// BOXABL's 2026-07-17 merger super 8-K carried Item 3.01 and produced a false "delisting" lead.
+// Require deficiency language in the document text so only genuine listing-standard failures match.
+const DEFICIENCY_PHRASES = ['%22deficiency%22', '%22not%20in%20compliance%22'];
 async function edgar8k301(sinceDate: string, endDate: string, seen: Set<string>): Promise<DistressLead[]> {
-  const j = await getJson<any>(
-    `https://efts.sec.gov/LATEST/search-index?q=%22Item%203.01%22&forms=8-K&startdt=${sinceDate}&enddt=${endDate}`,
-    { 'User-Agent': SEC_UA },
-  );
-  const hits: any[] = j?.hits?.hits || [];
+  const hits: any[] = [];
+  for (const phrase of DEFICIENCY_PHRASES) {
+    try {
+      const j = await getJson<any>(
+        `https://efts.sec.gov/LATEST/search-index?q=%22Item%203.01%22%20${phrase}&forms=8-K&startdt=${sinceDate}&enddt=${endDate}`,
+        { 'User-Agent': SEC_UA },
+      );
+      hits.push(...(j?.hits?.hits || []));
+    } catch { /* one phrase failing must not kill the other */ }
+  }
   const leads: DistressLead[] = [];
   for (const h of hits) {
     const s = h?._source || {};
@@ -127,7 +136,7 @@ async function edgar8k301(sinceDate: string, endDate: string, seen: Set<string>)
     seen.add(adsh);
     const name = ((s.display_names || [])[0] || 'unknown filer').replace(/\s+/g, ' ').trim();
     leads.push({
-      title: `8-K Item 3.01 (notice of delisting) - ${name}`,
+      title: `8-K Item 3.01 (listing deficiency) - ${name}`,
       url: `https://www.sec.gov/Archives/edgar/data/${String(Number(cik))}/${adsh.replace(/-/g, '')}/${adsh}-index.htm`,
       date: s.file_date,
       source: 'sec:fulltext',
