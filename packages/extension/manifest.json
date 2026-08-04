@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "VANTA Bridge",
+  "version": "1.0.0",
+  "description": "Drives this Chrome profile for the VANTA/Vortex browser daemon over a loopback WebSocket. Install ONLY in the dedicated VANTA profile.",
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "permissions": [
+    "tabs",
+    "scripting",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "storage",
+    "alarms",
+    "cookies",
+    "offscreen",
+    "debugger"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["wake.js"], "run_at": "document_start", "all_frames": false }
+  ],
+  "minimum_chrome_version": "116"
+}

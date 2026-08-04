@@ -1,0 +1,19 @@
+{
+  "name": "@stevecortesp/vortex-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VANTA Bridge — MV3 extension that drives a real Chrome profile for the Vortex browser daemon.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "esbuild": "^0.27.0"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "turndown": "^7.2.0"
+  }
+}
