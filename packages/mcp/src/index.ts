@@ -454,10 +454,17 @@ server.tool('desktop_read_ui',
   'Read the macOS accessibility tree of a native app (semantic perception: numbered elements with role/title/value/frame/actions, 30-250ms, zero image tokens). The desktop counterpart of web_fetch — use for native apps (Notes, Mail, Finder, Calendar, any non-browser UI). Element ids are only valid until the next action; for button sequences use desktop_act press with `find`.',
   {
     app: z.string().optional().describe('App name or bundle id; omit for frontmost'),
-    max: z.number().default(400).describe('Element cap (big trees like Notes/Xcode are slow — keep low)'),
+    // Measured 2026-08-05 on Notes (a known big tree): max 40 → 109ms,
+    // 100 → 99ms, 500 → 2139ms. The element budget IS the scoped-query fix —
+    // cost is superlinear past ~100, and the first N elements are the window
+    // chrome + visible content you actually want. Default 120; raise per-call
+    // only when a specific deep element is missing. (Never "fix" this by
+    // rebuilding vanta-ax: TCC grants are code-signature-bound and a rebuild
+    // silently voids Accessibility permission.)
+    max: z.number().default(120).describe('Element cap. 120 default ≈100ms; >200 gets superlinearly slower on big trees (Notes/Xcode). Raise only if a needed element is missing.'),
   },
   async (args) => {
-    const argv = ['dump', '--max', String(args.max ?? 400)];
+    const argv = ['dump', '--max', String(args.max ?? 120)];
     if (args.app) argv.push('--app', args.app);
     return axResult(await axCall(argv));
   }

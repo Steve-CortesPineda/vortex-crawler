@@ -57,6 +57,62 @@ function backend(force) {
 }
 function bridgeUp() { return !!(bridge && bridge.connected); }
 
+// ── Lazy bridge start (EDITH C4, 2026-08-05) ────────────────────────────────
+// The 24/7 `com.avanti.vanta-chrome` LaunchAgent was retired in the 2026-08-03
+// cost audit (a warm Chrome burning RAM for a dormant project). But the
+// cookie-fetch / research / session_search tiers are genuinely the fastest
+// thing we have when they ARE needed. Compromise: keep it dead by default and
+// boot it on the first request that actually needs the bridge, then let it
+// idle-exit. Cost when unused: zero. Cost on first use: one ~15-25s cold start.
+const BRIDGE_ROUTES = new Set([
+  '/fetch', '/fetch_extract', '/act', '/research', '/session_search',
+  '/read_visual', '/parallel_extract', '/parallel_screenshot',
+]);
+const BRIDGE_BOOT_TIMEOUT_MS = Number(process.env.VANTA_BRIDGE_BOOT_MS) || 40000;
+const BRIDGE_IDLE_EXIT_MS = Number(process.env.VANTA_BRIDGE_IDLE_MS) || 15 * 60 * 1000;
+let bridgeBooting = null;
+let bridgeChild = null;
+let bridgeLastUse = 0;
+
+async function ensureBridge() {
+  bridgeLastUse = Date.now();
+  if (bridgeUp()) return true;
+  if (bridgeBooting) return bridgeBooting;
+  bridgeBooting = (async () => {
+    try {
+      const { spawn } = await import('child_process');
+      console.error(`[bridge] lazy-starting vanta-chrome (idle exit in ${Math.round(BRIDGE_IDLE_EXIT_MS / 60000)}m)`);
+      bridgeChild = spawn(process.execPath, [new URL('./vanta-chrome.mjs', import.meta.url).pathname], {
+        detached: true, stdio: 'ignore', env: process.env,
+      });
+      bridgeChild.unref();
+      const deadline = Date.now() + BRIDGE_BOOT_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        if (bridgeUp()) { console.error('[bridge] connected'); return true; }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      console.error('[bridge] lazy-start timed out');
+      return false;
+    } catch (e) {
+      console.error(`[bridge] lazy-start failed: ${e?.message}`);
+      return false;
+    } finally {
+      bridgeBooting = null;
+    }
+  })();
+  return bridgeBooting;
+}
+
+// Idle reaper — shut the lazily-started Chrome down once nobody's using it, so
+// a single research call doesn't resurrect the 24/7 RAM cost the audit removed.
+setInterval(() => {
+  if (!bridgeChild || bridgeBooting) return;
+  if (!bridgeLastUse || Date.now() - bridgeLastUse < BRIDGE_IDLE_EXIT_MS) return;
+  try { process.kill(-bridgeChild.pid, 'SIGTERM'); } catch { try { bridgeChild.kill('SIGTERM'); } catch {} }
+  console.error('[bridge] idle — vanta-chrome stopped');
+  bridgeChild = null; bridgeLastUse = 0;
+}, 60000).unref?.();
+
 function isYouTubeLookup(query) {
   return /\b(youtube|latest video|newest video|recent upload|channel upload|views? on|mrbeast)\b/i.test(query);
 }
@@ -536,6 +592,10 @@ const server = http.createServer(async (req, res) => {
   if (heavy) await acquireHeavy();
   try {
     const body = await readBody(req);
+    // Boot the extension bridge on demand for routes that require it, instead
+    // of erroring with "bridge not connected" (EDITH C4).
+    if (BRIDGE_ROUTES.has(path) && body.backend !== 'patchright') await ensureBridge();
+    else if (bridgeUp()) bridgeLastUse = Date.now();
     const result = await routes[path](body);
     recordMetric(path, Date.now() - _t0, true);
     send(res, 200, { ok: true, result });
