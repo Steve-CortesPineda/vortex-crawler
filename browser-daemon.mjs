@@ -18,6 +18,7 @@
 import http from 'node:http';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { AgentBrowser, browse, reach, search, ProxyManager, BridgeServer, ExtensionBrowser, treeBrowse, classifyQuery, keyPassages, tokenize, stripMarkdownLinks, bm25ish, sourceQuality } from './packages/core/dist/index.js';
 
 const execFile = promisify(execFileCb);
@@ -64,15 +65,34 @@ function bridgeUp() { return !!(bridge && bridge.connected); }
 // thing we have when they ARE needed. Compromise: keep it dead by default and
 // boot it on the first request that actually needs the bridge, then let it
 // idle-exit. Cost when unused: zero. Cost on first use: one ~15-25s cold start.
+// Routes that REQUIRE the bridge — they hard-threw "bridge not connected"
+// before, so blocking on a boot is strictly better than erroring.
 const BRIDGE_ROUTES = new Set([
-  '/fetch', '/fetch_extract', '/act', '/research', '/session_search',
-  '/read_visual', '/parallel_extract', '/parallel_screenshot',
+  '/fetch', '/fetch_extract', '/act', '/research', '/session_search', '/read_visual',
 ]);
+// Routes that PREFER the bridge but fall back to Patchright transparently.
+// These must NEVER block on a boot: putting them in BRIDGE_ROUTES regressed
+// them from "works immediately" to "stalls up to 40s" (audit 2026-08-05).
+// Warm the bridge in the background instead, so the next call is fast.
+const BRIDGE_OPTIONAL_ROUTES = new Set(['/parallel_extract', '/parallel_screenshot']);
 const BRIDGE_BOOT_TIMEOUT_MS = Number(process.env.VANTA_BRIDGE_BOOT_MS) || 40000;
 const BRIDGE_IDLE_EXIT_MS = Number(process.env.VANTA_BRIDGE_IDLE_MS) || 15 * 60 * 1000;
 let bridgeBooting = null;
 let bridgeChild = null;
 let bridgeLastUse = 0;
+const BRIDGE_PID_FILE = `${process.env.HOME}/.vortex-vanta-chrome.pid`;
+
+// Adopt an orphan from a previous daemon life so it can still be reaped.
+(function adoptOrphanBridge() {
+  try {
+    const pid = parseInt(readFileSync(BRIDGE_PID_FILE, 'utf8').trim(), 10);
+    if (!pid) return;
+    process.kill(pid, 0); // throws if gone
+    bridgeChild = { pid, kill: (sig) => { try { process.kill(pid, sig); } catch {} } };
+    bridgeLastUse = Date.now();
+    console.error(`[bridge] adopted orphaned vanta-chrome pid ${pid} from a previous daemon`);
+  } catch { try { unlinkSync(BRIDGE_PID_FILE); } catch {} }
+})();
 
 async function ensureBridge() {
   bridgeLastUse = Date.now();
@@ -82,10 +102,15 @@ async function ensureBridge() {
     try {
       const { spawn } = await import('child_process');
       console.error(`[bridge] lazy-starting vanta-chrome (idle exit in ${Math.round(BRIDGE_IDLE_EXIT_MS / 60000)}m)`);
+      // Detached + unref'd means a lazily-started Chrome OUTLIVES this daemon:
+      // restart the daemon and the idle reaper loses its handle, so the RAM
+      // cost the Aug-3 audit removed comes back permanently (audit 2026-08-05).
+      // Write the pid so a fresh daemon can adopt and reap the orphan.
       bridgeChild = spawn(process.execPath, [new URL('./vanta-chrome.mjs', import.meta.url).pathname], {
         detached: true, stdio: 'ignore', env: process.env,
       });
       bridgeChild.unref();
+      try { writeFileSync(BRIDGE_PID_FILE, String(bridgeChild.pid)); } catch {}
       const deadline = Date.now() + BRIDGE_BOOT_TIMEOUT_MS;
       while (Date.now() < deadline) {
         if (bridgeUp()) { console.error('[bridge] connected'); return true; }
@@ -109,6 +134,7 @@ setInterval(() => {
   if (!bridgeChild || bridgeBooting) return;
   if (!bridgeLastUse || Date.now() - bridgeLastUse < BRIDGE_IDLE_EXIT_MS) return;
   try { process.kill(-bridgeChild.pid, 'SIGTERM'); } catch { try { bridgeChild.kill('SIGTERM'); } catch {} }
+  try { unlinkSync(BRIDGE_PID_FILE); } catch {}
   console.error('[bridge] idle — vanta-chrome stopped');
   bridgeChild = null; bridgeLastUse = 0;
 }, 60000).unref?.();
@@ -594,7 +620,8 @@ const server = http.createServer(async (req, res) => {
     const body = await readBody(req);
     // Boot the extension bridge on demand for routes that require it, instead
     // of erroring with "bridge not connected" (EDITH C4).
-    if (BRIDGE_ROUTES.has(path) && body.backend !== 'patchright') await ensureBridge();
+    if (body.backend !== 'patchright' && BRIDGE_ROUTES.has(path)) await ensureBridge();
+    else if (body.backend !== 'patchright' && BRIDGE_OPTIONAL_ROUTES.has(path)) ensureBridge().catch(() => {});
     else if (bridgeUp()) bridgeLastUse = Date.now();
     const result = await routes[path](body);
     recordMetric(path, Date.now() - _t0, true);
