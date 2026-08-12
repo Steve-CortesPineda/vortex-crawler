@@ -2,6 +2,27 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { VortexCrawler, search, AgentBrowser, browse, reach, discover, discoverDomain, track, getWatchlist, setWatchlist, ProxyManager, ocrUrl, ocrAvailable, VortexDaemonClient } from '@stevecortesp/vortex-core';
+import { collapseAxElements } from './ax-collapse.js';
+
+// ── Output cap for page-fetch tools ──────────────────────────────────────────
+// web_fetch/reach used to return the daemon's full extraction verbatim (measured 61KB for one
+// page — a token bomb). Cap the big markdown field(s) at a paragraph boundary, leave metadata
+// intact. reach() nests the page under `result` (ReachOutcome.ok === true), handled recursively.
+function truncateAtParagraph(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const cut = text.lastIndexOf('\n\n', maxChars);
+  const kept = text.slice(0, cut > 0 ? cut : maxChars);
+  return `${kept}\n\n[truncated: showing ${kept.length} of ${text.length} chars — pass maxChars for more]`;
+}
+function capTextFields<T>(result: T, maxChars: number): T {
+  if (!result || typeof result !== 'object' || Array.isArray(result) || !(maxChars > 0)) return result;
+  const out: Record<string, unknown> = { ...(result as Record<string, unknown>) };
+  for (const key of ['markdown', 'content', 'text']) {
+    if (typeof out[key] === 'string' && (out[key] as string).length > maxChars) out[key] = truncateAtParagraph(out[key] as string, maxChars);
+  }
+  if (out.result && typeof out.result === 'object') out.result = capTextFields(out.result, maxChars);
+  return out as T;
+}
 
 // Cookie-fetch tier for scrape/crawl: route raw HTML through the daemon's logged-in VANTA session when
 // the daemon is up (no-render, real cookies). Throws when the daemon is down → adaptive-fetcher falls
@@ -329,10 +350,12 @@ server.tool('reach', 'Get ONE hard-to-reach URL by any legitimate means: direct 
   {
     url: z.string().url().describe('The URL to reach'),
     allowArchive: z.boolean().default(true).describe('Allow public Wayback/archive.today/reader fallback'),
+    maxChars: z.number().default(8000).describe('Cap on returned markdown characters; truncated at a paragraph boundary with a note. Pass higher for full text.'),
   },
-  async (args) => browserResult(await daemonUp()
+  // ReachOutcome nests the page as { ok: true, result: { markdown, ... } } — capTextFields recurses into it.
+  async (args) => browserResult(capTextFields(await daemonUp()
     ? await daemon.reach(args.url, args.allowArchive)
-    : await reach({ url: args.url, agentBrowser: browser, proxyManager, allowArchive: args.allowArchive }))
+    : await reach({ url: args.url, agentBrowser: browser, proxyManager, allowArchive: args.allowArchive }), args.maxChars))
 );
 
 server.tool('discover', 'Broad event DISCOVERY across ALL categories (vs browse\'s narrow query research). Reads the Wikipedia Current Events Portal day-by-day over a window and buckets every notable event by category — Armed conflicts, Business, Disasters, Politics, Science, Sports, etc. Use for "what happened in the last N days / everything recent" — it surfaces categories you did NOT think to ask about (sports, disasters, obituaries…). Zero model tokens.',
@@ -387,8 +410,11 @@ server.tool('ocr_url', 'OCR an image or PDF URL with Apple Vision (on-device, fr
 // ─── VANTA extension-backed tools (require the browser daemon + connected extension) ───
 server.tool('web_fetch',
   'Fetch ONE URL through the logged-in VANTA Chrome session and return clean markdown — cookie-authenticated, NO browser render (fast, ~100-400ms). Use for pages behind your logins or soft paywalls, or when you just need the article body quickly. Requires the VANTA browser daemon + extension; errors clearly if not connected.',
-  { url: z.string().url().describe('The URL to fetch') },
-  async (args) => { try { return browserResult(await daemon.call('/fetch_extract', { url: args.url })); } catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) }); } }
+  {
+    url: z.string().url().describe('The URL to fetch'),
+    maxChars: z.number().default(8000).describe('Cap on returned markdown characters; truncated at a paragraph boundary with a note. Pass higher for full text.'),
+  },
+  async (args) => { try { return browserResult(capTextFields(await daemon.call('/fetch_extract', { url: args.url }), args.maxChars)); } catch (e) { return browserResult({ ok: false, error: (e as Error)?.message?.slice(0, 200) }); } }
 );
 
 server.tool('research',
@@ -466,7 +492,22 @@ server.tool('desktop_read_ui',
   async (args) => {
     const argv = ['dump', '--max', String(args.max ?? 120)];
     if (args.app) argv.push('--app', args.app);
-    return axResult(await axCall(argv));
+    const raw = await axCall(argv);
+    // Post-filter (MCP-side only — daemon + vanta-ax binary untouched): collapse junk element
+    // runs (odometer digits, duplicate-frame wrapper groups) that eat the element budget.
+    // Measured ~40% of an 80-element budget wasted on one real page. Surviving ids are the
+    // ORIGINAL ids (desktop_act references them). Unparseable/error payloads pass through as-is.
+    try {
+      const dump = JSON.parse(raw);
+      if (dump && Array.isArray(dump.elements)) {
+        const { elements, removed } = collapseAxElements(dump.elements);
+        dump.elements = elements;
+        dump.elementCount = elements.length;
+        dump.collapsedElements = removed;
+        return axResult(JSON.stringify(dump));
+      }
+    } catch { /* not a dump payload (axCall error JSON, etc.) */ }
+    return axResult(raw);
   }
 );
 
