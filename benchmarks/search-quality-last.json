@@ -1,0 +1,1089 @@
+{
+  "ok": true,
+  "ranAt": "2026-07-15T20:08:59.169Z",
+  "daemonUp": true,
+  "bridge": {
+    "connected": true,
+    "profile": "vanta",
+    "tabs": 6,
+    "sinceMs": 57406083
+  },
+  "totals": {
+    "cases": 10,
+    "failed": 0
+  },
+  "metrics": {
+    "latencyMs": {
+      "p50": 8978,
+      "p95": 46882,
+      "max": 46882
+    },
+    "lowConfidence": 0,
+    "qualityFailure": 0,
+    "googleSession": 5,
+    "bingOnly": 0,
+    "fallback": 3
+  },
+  "rows": [
+    {
+      "mode": "daemon",
+      "query": "Anthropic latest Claude news July 2026",
+      "ms": 46882,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": true,
+        "sources": [
+          "bing",
+          "google"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 10,
+            "ms": 397
+          },
+          {
+            "engine": "google-session",
+            "status": "timeout",
+            "count": 0,
+            "ms": 6000,
+            "note": "no answer within 6000ms"
+          },
+          {
+            "engine": "google",
+            "status": "ok",
+            "count": 7,
+            "ms": 0,
+            "note": "stealth-chrome fallback"
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Anthropic moves closer to IPO as bankers line up investor ...",
+            "url": "https://www.cnbc.com/2026/07/15/anthropic-ipo-banks-investor-meetings.html",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0573,
+            "sourceQuality": 0.65,
+            "sourceClass": "wire"
+          },
+          {
+            "rank": 2,
+            "title": "Newsroom",
+            "url": "https://www.anthropic.com/news",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0547,
+            "sourceQuality": 1,
+            "sourceClass": "ai-lab"
+          },
+          {
+            "rank": 3,
+            "title": "Anthropic Release Notes - July 2026 Latest Updates",
+            "url": "https://releasebot.io/updates/anthropic",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0526,
+            "sourceQuality": 0.35,
+            "sourceClass": "specialist"
+          },
+          {
+            "rank": 4,
+            "title": "Anthropic Releases ‘Safe’ Version of Its Mythos A.I. Technology",
+            "url": "https://www.nytimes.com/2026/06/09/technology/anthropic-ai-claude-fable-mythos.html",
+            "engines": [
+              "bing"
+            ],
+            "score": 0.0478,
+            "sourceQuality": 0.65,
+            "sourceClass": "wire"
+          },
+          {
+            "rank": 5,
+            "title": "AI Model Wars: Anthropic Extends Fable Access Again ...",
+            "url": "https://www.forbes.com/sites/tylerroush/2026/07/13/ai-model-wars-anthropic-extends-fable-access-again-after-openais-sol-release/",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0465,
+            "sourceQuality": 0.35,
+            "sourceClass": "specialist"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "OpenAI latest model release July 2026",
+      "ms": 16723,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": true,
+        "sources": [
+          "bing",
+          "google"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 10,
+            "ms": 325
+          },
+          {
+            "engine": "google-session",
+            "status": "timeout",
+            "count": 0,
+            "ms": 6000,
+            "note": "no answer within 6000ms"
+          },
+          {
+            "engine": "google",
+            "status": "ok",
+            "count": 9,
+            "ms": 0,
+            "note": "stealth-chrome fallback"
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Model Release Notes | OpenAI Help Center",
+            "url": "https://help.openai.com/en/articles/9624314-model-release-notes",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0763,
+            "sourceQuality": 1,
+            "sourceClass": "ai-lab"
+          },
+          {
+            "rank": 2,
+            "title": "OpenAI Releases New, More Powerful A.I. Model",
+            "url": "https://www.nytimes.com/2026/07/09/technology/openai-sol-ai.html",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0631,
+            "sourceQuality": 0.65,
+            "sourceClass": "wire"
+          },
+          {
+            "rank": 3,
+            "title": "Previewing GPT-5.6 Sol: a next-generation model",
+            "url": "https://openai.com/index/previewing-gpt-5-6-sol/",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0607,
+            "sourceQuality": 1,
+            "sourceClass": "ai-lab"
+          },
+          {
+            "rank": 4,
+            "title": "OpenAI launches its new family of models with GPT-5.6",
+            "url": "https://techcrunch.com/2026/07/09/openai-launches-its-new-family-of-models-with-gpt-5-6/",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0567,
+            "sourceQuality": 0.65,
+            "sourceClass": "wire"
+          },
+          {
+            "rank": 5,
+            "title": "OpenAI to publicly release GPT-5.6, rolls out Live voice AI ...",
+            "url": "https://www.cnbc.com/2026/07/08/openai-expanding-gpt-5point6-ai-model-release-ending-government-limits.html",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0565,
+            "sourceQuality": 0.65,
+            "sourceClass": "wire"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "Federal Reserve anti money laundering proposal July 2026",
+      "ms": 15584,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": true,
+        "reranked": true,
+        "sources": [
+          "bing",
+          "google"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 10,
+            "ms": 402
+          },
+          {
+            "engine": "google-session",
+            "status": "timeout",
+            "count": 0,
+            "ms": 6000,
+            "note": "no answer within 6000ms"
+          },
+          {
+            "engine": "google",
+            "status": "ok",
+            "count": 8,
+            "ms": 0,
+            "note": "stealth-chrome fallback"
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Anti-Money Laundering and Countering the Financing of ...",
+            "url": "https://www.federalregister.gov/documents/2026/07/09/2026-13919/anti-money-laundering-and-countering-the-financing-of-terrorism-programs",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0781,
+            "sourceQuality": 1,
+            "sourceClass": "gov",
+            "rerankScore": 0.1355
+          },
+          {
+            "rank": 2,
+            "title": "Statement on the Proposal for Bank Anti-money ...",
+            "url": "https://www.federalreserve.gov/newsevents/pressreleases/barr-statement-20260707.htm",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0695,
+            "sourceQuality": 1,
+            "sourceClass": "gov",
+            "rerankScore": 0.1267
+          },
+          {
+            "rank": 3,
+            "title": "Press Releases",
+            "url": "https://www.federalreserve.gov/newsevents/pressreleases/bcreg20260707a.htm",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0544,
+            "sourceQuality": 1,
+            "sourceClass": "gov",
+            "rerankScore": 0.1161
+          },
+          {
+            "rank": 4,
+            "title": "Fact Sheet: Proposed Rule to Fundamentally Reform ...",
+            "url": "https://www.fincen.gov/system/files/2026-04/Program-NPRM-FactSheet.pdf",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0409,
+            "sourceQuality": 1,
+            "sourceClass": "gov",
+            "rerankScore": 0.0659
+          },
+          {
+            "rank": 5,
+            "title": "BPI Statement on Federal Reserve Proposal on Anti- ...",
+            "url": "https://bpi.com/bpi-statement-on-federal-reserve-proposal-on-anti-money-laundering-and-countering-the-financing-of-terrorism-programs/",
+            "engines": [
+              "google"
+            ],
+            "score": 0.0393,
+            "sourceQuality": 0,
+            "sourceClass": "other"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "Nvidia latest AI chip delay July 2026",
+      "ms": 7936,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": false,
+        "reranked": true,
+        "sources": [
+          "bing",
+          "google-session"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 10,
+            "ms": 316
+          },
+          {
+            "engine": "google-session",
+            "status": "ok",
+            "count": 9,
+            "ms": 2155
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "NVIDIA (NVDA) Stock Price Forecast July 2026: Goldman ...",
+            "url": "https://www.tradingkey.com/analysis/stocks/us-stocks/262015350-nvidia-nvda-stock-forecast-july-2026-kyber-denial-goldman-tradingkey",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0417,
+            "sourceQuality": 0,
+            "sourceClass": "other",
+            "rerankScore": 0.0778
+          },
+          {
+            "rank": 2,
+            "title": "Download The Official NVIDIA Drivers | NVIDIA",
+            "url": "https://www.nvidia.com/en-us/drivers/",
+            "engines": [
+              "bing"
+            ],
+            "score": 0.0403,
+            "sourceQuality": 0.35,
+            "sourceClass": "ai-lab",
+            "rerankScore": 0.0698
+          },
+          {
+            "rank": 3,
+            "title": "The Market Cap for Jensen Huang's Nvidia Climbs Past $5 ...",
+            "url": "https://www.fool.com/investing/2026/07/13/the-market-cap-for-jensen-huangs-nvidia-climbs-pas/",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0374,
+            "sourceQuality": 0,
+            "sourceClass": "other",
+            "rerankScore": 0.0642
+          },
+          {
+            "rank": 4,
+            "title": "Nvidia's next-gen AI rack system delayed to 2028 ...",
+            "url": "https://www.cnbc.com/2026/07/06/nvidia-kyber-rack-system-delays-manufacturing-taiwan-rubin-chips-.html",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0557,
+            "sourceQuality": 0.65,
+            "sourceClass": "wire",
+            "rerankScore": 0.042
+          },
+          {
+            "rank": 5,
+            "title": "Nvidia CEO Jensen Huang Dismisses Vera Rubin ...",
+            "url": "https://www.benzinga.com/markets/tech/26/07/60465814/nvidia-ceo-jensen-huang-dismisses-vera-rubin-hardware-delay-report-affirms-giant-production-volumes",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0349,
+            "sourceQuality": 0,
+            "sourceClass": "other"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "MrBeast latest video July 2026",
+      "ms": 143,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "usedFallback": false,
+        "vertical": "youtube",
+        "sources": [
+          "yt-rss"
+        ],
+        "engineReports": [
+          {
+            "engine": "yt-rss",
+            "status": "ok",
+            "count": 10,
+            "ms": 0,
+            "note": "YouTube channel-latest route (uploads feed): MrBeast"
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Don't Pop the Balloon",
+            "url": "https://www.youtube.com/watch?v=egvLKQe6I4I",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 2,
+            "title": "$1 vs $10,000 Cake",
+            "url": "https://www.youtube.com/watch?v=LgbyEFILLJI",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 3,
+            "title": "Survive 30 Days Chained To A Stranger, Win $250,000",
+            "url": "https://www.youtube.com/watch?v=iYlODtkyw_I",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 4,
+            "title": "This Plane Takes Off in 12 Seconds",
+            "url": "https://www.youtube.com/watch?v=YA_kX8hu1gg",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 5,
+            "title": "I Raced The Fastest Man On Earth",
+            "url": "https://www.youtube.com/watch?v=XCGVurja73c",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "Watch Alex YouTube latest upload",
+      "ms": 163,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "usedFallback": false,
+        "vertical": "youtube",
+        "sources": [
+          "yt-rss"
+        ],
+        "engineReports": [
+          {
+            "engine": "yt-rss",
+            "status": "ok",
+            "count": 10,
+            "ms": 0,
+            "note": "YouTube channel-latest route (uploads feed): Watch Alex"
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Did Speed Almost Go Too Far On Stream?",
+            "url": "https://www.youtube.com/watch?v=39_9loCzbzA",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 2,
+            "title": "Unbelievable Moments YouTubers Saved Lives",
+            "url": "https://www.youtube.com/watch?v=tHYiamwPxOI",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 3,
+            "title": "How Much Do Small YouTubers REALLY Make?",
+            "url": "https://www.youtube.com/watch?v=bnTIyu04U78",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 4,
+            "title": "Why Small YouTubers Can’t Make Money",
+            "url": "https://www.youtube.com/watch?v=KQmUSMWD76w",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          },
+          {
+            "rank": 5,
+            "title": "I Flew with a $5.2 Million Pokémon Card",
+            "url": "https://www.youtube.com/watch?v=7s6YRhaVvWc",
+            "engines": [
+              "yt-rss"
+            ],
+            "score": 1,
+            "sourceQuality": 1
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "cheap hotels near Incheon airport",
+      "ms": 8978,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": false,
+        "sources": [
+          "bing",
+          "google-session"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 8,
+            "ms": 417
+          },
+          {
+            "engine": "google-session",
+            "status": "ok",
+            "count": 10,
+            "ms": 2461
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Hotels near Incheon Intl Airport - Search on KAYAK",
+            "url": "https://www.kayak.com/Seoul-Incheon-Airport-Hotels.ICN.aph.ksp",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0897,
+            "sourceQuality": 0.8,
+            "sourceClass": "travel-booking"
+          },
+          {
+            "rank": 2,
+            "title": "Hotels Near Incheon International Airport | Skyscanner",
+            "url": "https://www.skyscanner.com/hotels/south-korea/seoul-hotels/near-incheon-international/ai-95673659",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0897,
+            "sourceQuality": 0.8,
+            "sourceClass": "travel-booking"
+          },
+          {
+            "rank": 3,
+            "title": "On a budget? Find Cheap Hotels in Incheon, South Korea",
+            "url": "https://www.agoda.com/theme/cheap-hotels/city/incheon-kr.html",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0885,
+            "sourceQuality": 0.8,
+            "sourceClass": "travel-booking"
+          },
+          {
+            "rank": 4,
+            "title": "The 10 best cheap hotels in Incheon, South Korea",
+            "url": "https://www.booking.com/budget/city/kr/inchon.html",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0882,
+            "sourceQuality": 0.8,
+            "sourceClass": "travel-booking"
+          },
+          {
+            "rank": 5,
+            "title": "THE 10 BEST Cheap Hotels in Incheon 2026 (with Prices)",
+            "url": "https://www.tripadvisor.com/HotelsList-Incheon-Cheap-Hotels-zfp1865328.html",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0881,
+            "sourceQuality": 0.8,
+            "sourceClass": "travel-booking"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "Mercor AI engineer matching latest",
+      "ms": 10416,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": false,
+        "reranked": true,
+        "sources": [
+          "bing",
+          "google-session"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 7,
+            "ms": 366
+          },
+          {
+            "engine": "google-session",
+            "status": "ok",
+            "count": 8,
+            "ms": 2414
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Mercor Machine Learning Engineer Interview Questions ...",
+            "url": "https://dataford.io/interview-guides/mercor/machine-learning-engineer",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0448,
+            "sourceQuality": 0,
+            "sourceClass": "other",
+            "rerankScore": 0.0844
+          },
+          {
+            "rank": 2,
+            "title": "Mercor Powers AI Talent Matching at Hyperscale",
+            "url": "https://www.mongodb.com/solutions/customer-case-studies/mercor",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0422,
+            "sourceQuality": 0,
+            "sourceClass": "other",
+            "rerankScore": 0.0784
+          },
+          {
+            "rank": 3,
+            "title": "AI Data Labeler Mercor In Talks To Raise $500 Million At $20 ...",
+            "url": "https://www.forbes.com/sites/richardnieva/2026/07/09/mercor-fundraise/",
+            "engines": [
+              "bing"
+            ],
+            "score": 0.0439,
+            "sourceQuality": 0.35,
+            "sourceClass": "specialist",
+            "rerankScore": 0.0687
+          },
+          {
+            "rank": 4,
+            "title": "Careers at Mercor | Join our team",
+            "url": "https://www.mercor.com/careers/",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0385,
+            "sourceQuality": 0,
+            "sourceClass": "other",
+            "rerankScore": 0.0627
+          },
+          {
+            "rank": 5,
+            "title": "Find AI Training Roles That Fit You | Join Mercor Experts",
+            "url": "https://www.mercor.com/experts/",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0356,
+            "sourceQuality": 0,
+            "sourceClass": "other"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "Stripe webhook signing secret rotation best practice",
+      "ms": 8245,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": false,
+        "sources": [
+          "bing",
+          "google-session"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 10,
+            "ms": 344
+          },
+          {
+            "engine": "google-session",
+            "status": "ok",
+            "count": 8,
+            "ms": 2236
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "Receive Stripe events in your webhook endpoint",
+            "url": "https://docs.stripe.com/webhooks",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0799,
+            "sourceQuality": 1,
+            "sourceClass": "official-docs"
+          },
+          {
+            "rank": 2,
+            "title": "How to handle Stripe Webhook signing Secret Key rotation ...",
+            "url": "https://stackoverflow.com/questions/77818995/how-to-handle-stripe-webhook-signing-secret-key-rotation-on-the-server-side",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0712,
+            "sourceQuality": 0.45,
+            "sourceClass": "code"
+          },
+          {
+            "rank": 3,
+            "title": "Implementing Secure Webhooks Signatures like Stripe",
+            "url": "https://github.com/frain-dev/convoy/wiki/Implementing-Secure-Webhooks-Signatures-like-Stripe",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0481,
+            "sourceQuality": 0.45,
+            "sourceClass": "code"
+          },
+          {
+            "rank": 4,
+            "title": "Stripe Webhook Security Guide — Signature Verification ...",
+            "url": "https://www.hooklistener.com/learn/stripe-webhook-security-guide",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0429,
+            "sourceQuality": 0,
+            "sourceClass": "other"
+          },
+          {
+            "rank": 5,
+            "title": "Detector of The Month – Stripe webhook secret, April 2022",
+            "url": "https://blog.gitguardian.com/detector-of-the-month-stripe-webhook-url/",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0373,
+            "sourceQuality": 0,
+            "sourceClass": "other"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "daemon",
+      "query": "DigitalOcean reserved IP DNS Google Cloud DNS certbot nginx",
+      "ms": 6803,
+      "ok": true,
+      "failures": [],
+      "response": {
+        "lowConfidence": false,
+        "qualityFailure": false,
+        "usedFallback": false,
+        "reranked": true,
+        "sources": [
+          "bing",
+          "google-session"
+        ],
+        "engineReports": [
+          {
+            "engine": "brave",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "startpage",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "mojeek",
+            "status": "zero",
+            "count": 0,
+            "ms": 0,
+            "note": "benched (reserve tier — session engine active)"
+          },
+          {
+            "engine": "bing",
+            "status": "ok",
+            "count": 10,
+            "ms": 273
+          },
+          {
+            "engine": "google-session",
+            "status": "ok",
+            "count": 9,
+            "ms": 2476
+          }
+        ],
+        "top": [
+          {
+            "rank": 1,
+            "title": "How To Secure Nginx with Let's Encrypt on Ubuntu",
+            "url": "https://www.digitalocean.com/community/tutorials/how-to-secure-nginx-with-let-s-encrypt-on-ubuntu-20-04",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0881,
+            "sourceQuality": 1,
+            "sourceClass": "other",
+            "rerankScore": 0.1398
+          },
+          {
+            "rank": 2,
+            "title": "How To Acquire a Let's Encrypt Certificate Using DNS ...",
+            "url": "https://www.digitalocean.com/community/tutorials/how-to-acquire-a-let-s-encrypt-certificate-using-dns-validation-with-certbot-dns-digitalocean-on-ubuntu-20-04",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0737,
+            "sourceQuality": 1,
+            "sourceClass": "other",
+            "rerankScore": 0.1223
+          },
+          {
+            "rank": 3,
+            "title": "Certbot: No valid ip addresses found / Invalid response ...",
+            "url": "https://stackoverflow.com/questions/59522020/certbot-no-valid-ip-addresses-found-invalid-response-found-from-google-cloud",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.044,
+            "sourceQuality": 0.45,
+            "sourceClass": "code",
+            "rerankScore": 0.0757
+          },
+          {
+            "rank": 4,
+            "title": "Fails to add a let's encrypt certificate via DNS for digital ...",
+            "url": "https://github.com/NginxProxyManager/nginx-proxy-manager/issues/1874",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0432,
+            "sourceQuality": 0.45,
+            "sourceClass": "code",
+            "rerankScore": 0.0757
+          },
+          {
+            "rank": 5,
+            "title": "0.22 certbot with digitalocean dns - Client dev",
+            "url": "https://community.letsencrypt.org/t/0-22-certbot-with-digitalocean-dns/51265",
+            "engines": [
+              "google-session"
+            ],
+            "score": 0.0424,
+            "sourceQuality": 0.2,
+            "sourceClass": "forum-community"
+          }
+        ]
+      }
+    }
+  ]
+}

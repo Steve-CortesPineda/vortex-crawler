@@ -8,3 +8,4 @@ dist/
 ._*
 .DS_Store
 benchmarks/search-quality-history/
+tools/npm-token.mjs

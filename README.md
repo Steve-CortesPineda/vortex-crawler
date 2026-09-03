@@ -4,13 +4,17 @@ The adaptive web crawler — fastest among JS-capable crawlers in our benchmark 
 launches a browser when a page actually needs one. LLM-optimized markdown, MCP-native, plus an
 autonomous browsing agent, multi-engine search, and an always-on tracking oracle.
 
+## Status (Sep 2026)
+
+Active development. The browser daemon (`browser-daemon.mjs`) and tracker daemon (`tracker-daemon.mjs`) are experimental — they work but are tightly coupled to the local VANTA/Avanti setup and may be retired or refactored. The core crawler, MCP server, CLI, and extractors are stable and usable standalone. npm packages (`@stevecortesp/vortex-*`) are at 0.1.0; a publish refresh is planned.
+
 ## Why Vortex?
 
 | Feature | Vortex | Firecrawl | Crawl4AI | Scrapy | Crawlee |
 |---------|--------|-----------|----------|--------|---------|
 | Adaptive rendering | 3-tier auto-detect | Browser always | Browser always | HTTP only | Browser always |
 | Browser launched | **Only when needed** | Always | Always | Never (no JS) | Always |
-| MCP server | Built-in (18 tools) | No | No | No | No |
+| MCP server | Built-in (32 tools) | No | No | No | No |
 | LLM markdown | Yes + token count | Yes | Yes | No | Partial |
 | Web search | Multi-engine fusion + Google | No | No | No | No |
 | Autonomous research | Multi-hop `browse` + `reach` ladder | No | No | No | No |
@@ -95,7 +99,7 @@ npx @stevecortesp/vortex-cli search "your query here"             # Web search
 npx @stevecortesp/vortex-mcp
 ```
 
-**18 tools**, grouped:
+**32 tools**, grouped:
 
 | Group | Tools |
 |-------|-------|
@@ -104,7 +108,10 @@ npx @stevecortesp/vortex-mcp
 | Autonomous research | `browse` (multi-hop, follows the best links to real depth), `reach` (get one hard page via the fallback ladder) |
 | Discovery | `discover` (categorized world events), `discover_domain` (per-domain hubs: AI / markets / YouTube / crypto) |
 | Tracking oracle | `track` (what's new about your watchlist), `watchlist` (view/set entities) |
-| Agent browser | `browser_open`, `browser_goto`, `browser_click`, `browser_type`, `browser_extract`, `browser_press`, `browser_scroll`, `browser_screenshot`, `browser_close` |
+| Agent browser | `browser_open`, `browser_goto`, `browser_click`, `browser_type`, `browser_extract`, `browser_press`, `browser_scroll`, `browser_screenshot`, `browser_close`, `browser_parallel_extract`, `browser_parallel_screenshot` |
+| VANTA session | `web_fetch`, `research`, `session_search`, `read_visual`, `vanta_stats` (require browser daemon + VANTA extension) |
+| Desktop (macOS AX) | `desktop_read_ui`, `desktop_act`, `desktop_screenshot` (native app perception + actions via accessibility) |
+| Utility | `ocr_url` (Apple Vision OCR for PDFs/images) |
 
 Add to Claude Code:
 ```json
@@ -219,7 +226,7 @@ crawler.use(tableExtractor());   // HTML tables to arrays
 |---------|-------------|
 | `@stevecortesp/vortex-core` | Crawler engine, adaptive rendering, caching, plugins, multi-engine search, agent browser, `browse`/`reach`/`track`, anti-bot/stealth |
 | `@stevecortesp/vortex-cli` | Command-line interface |
-| `@stevecortesp/vortex-mcp` | MCP server for AI agents (20 tools, incl. parallel extract/screenshot) |
+| `@stevecortesp/vortex-mcp` | MCP server for AI agents (32 tools, incl. parallel extract/screenshot, VANTA desktop bridge) |
 | `@stevecortesp/vortex-extractors` | YouTube, CSS, schema, table extractors |
 
 ## Development

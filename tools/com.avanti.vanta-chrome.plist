@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  VANTA Chrome — the dedicated real-Chrome (patchright/stealth) profile with the VANTA Bridge extension
+  loaded, connected to the browser daemon over loopback. Log into Google/LinkedIn/etc. ONCE in this
+  window and sessions persist in the profile (~/.vortex-vanta-pw2). Runs headful (most human); set
+  VANTA_HEADLESS=1 below to run windowless.
+
+  Install (load the browser daemon plist FIRST so the bridge has something to connect to):
+    cp tools/com.avanti.vortex-browser-daemon.plist ~/Library/LaunchAgents/
+    cp tools/com.avanti.vanta-chrome.plist          ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.avanti.vortex-browser-daemon.plist
+    launchctl load ~/Library/LaunchAgents/com.avanti.vanta-chrome.plist
+  Stop/remove:
+    launchctl unload ~/Library/LaunchAgents/com.avanti.vanta-chrome.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.avanti.vanta-chrome</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Volumes/AVANTI/Projects/vortex-crawler/vanta-chrome.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Volumes/AVANTI/Projects/vortex-crawler</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>VANTA_PROFILE_DIR</key>
+    <string>/Users/stevecortes-pineda/.vortex-vanta-pw2</string>
+    <!-- Uncomment to run windowless. Headful is the default (most human, best for staying logged in). -->
+    <!-- <key>VANTA_HEADLESS</key><string>1</string> -->
+    <!-- Optional WS token (defense-in-depth on the loopback bridge). If set, must match the daemon's. -->
+    <!-- <key>VORTEX_DAEMON_TOKEN</key><string>CHANGEME</string> -->
+    <key>HOME</key>
+    <string>/Users/stevecortes-pineda</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/stevecortes-pineda/Library/Logs/avanti/vanta-chrome.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/stevecortes-pineda/Library/Logs/avanti/vanta-chrome.err.log</string>
+
+  <!-- NOT Background: headful Chrome needs the Aqua GUI session. -->
+</dict>
+</plist>

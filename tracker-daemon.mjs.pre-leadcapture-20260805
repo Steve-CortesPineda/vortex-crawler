@@ -16,10 +16,6 @@ const DIGEST = `${DIR}/latest-digest.md`;
 const LOG = `${DIR}/digest-log.jsonl`;
 const DSTATE = `${DIR}/distress-state.json`;
 const KB_INTEL_DIR = `${process.env.HOME}/Avant-Futures-KB/Intel/Vortex-Tracker`;
-// P2b (2026-08-05): primary-source distress/gov filings are Delisted EP-RESEARCH LEADS,
-// not phone-interrupts. Capture them here (append-only JSONL) instead of pushing ntfy.
-const KB_LEADS_DIR = `${process.env.HOME}/Avant-Futures-KB/Projects/Delisted`;
-const KB_LEADS = `${KB_LEADS_DIR}/content-leads.jsonl`;
 
 /** All high-priority new items across entities, flattened (entity carried on each item). */
 function collectHigh(d) {
@@ -88,28 +84,25 @@ async function ntfyUrl() {
   } catch { return null; }
 }
 
-// P2b (2026-08-05): distress/gov filings are Delisted content leads — CAPTURE, don't push.
-// Append one JSON line per lead to the KB so ep-research can mine them; the phone stays quiet.
-// (Replaces the old urgent-only ntfy push; ntfyUrl() left defined but unused for easy rollback.)
-async function captureLeads(pushable) {
-  try { await access(`${process.env.HOME}/Avant-Futures-KB`); } catch { return 'leads: KB not mounted'; }
+// Urgent-only push: fires ONLY for high-priority items, and the body is ONLY those items.
+async function pushNtfy(high) {
+  const url = await ntfyUrl();
+  if (!url) return 'ntfy: no NTFY_URL';
+  const lines = high.slice(0, 10).map((m) => `${m.entity}: ${m.title}`);
   try {
-    await mkdir(KB_LEADS_DIR, { recursive: true });
-    const capturedAt = new Date().toISOString();
-    const rows = pushable.slice(0, 50).map((m) => JSON.stringify({
-      capturedAt,
-      entity: m.entity,
-      title: m.title,
-      url: m.url,
-      source: m.source || null,        // e.g. "distress:delisting" / "distress:bankruptcy"
-      sourceClass: m.sourceClass || null,
-      date: m.date || null,
-      priority: m.priority || null,
-      firstSeen: m.firstSeen || null,
-    }));
-    await appendFile(KB_LEADS, rows.join('\n') + '\n');
-    return `leads: +${rows.length} -> ${KB_LEADS}`;
-  } catch (e) { return `leads: FAILED ${e?.message || e}`; }
+    const res = await fetch(url, {
+      method: 'POST',
+      // HTTP header values are Latin-1 only — keep headers ASCII (em-dash breaks fetch).
+      headers: {
+        Title: `Vortex Tracker - ${high.length} high-signal`,
+        'X-Priority': '4',
+        Tags: 'rotating_light',
+        'X-Click': high[0].url,
+      },
+      body: lines.join('\n'),
+    });
+    return `ntfy: ${res.status}`;
+  } catch (e) { return `ntfy: FAILED ${e?.message || e}`; }
 }
 
 // Append the run's digest to a per-day KB note. Skipped silently when the SSD/KB isn't mounted.
@@ -160,8 +153,8 @@ try {
   const high = collectHigh(digest);
   const pushable = high.filter((m) => (m.source || '').startsWith('distress:') || m.sourceClass === 'gov');
   const parts = [];
-  if (pushable.length) parts.push(await captureLeads(pushable));
-  else parts.push(high.length ? `${high.length} high (none lead-worthy) - no capture` : 'no high-priority - no capture');
+  if (pushable.length) parts.push(await pushNtfy(pushable));
+  else parts.push(high.length ? `${high.length} high (none push-worthy) - no push` : 'no high-priority - no push');
   if (digest.newMentions > 0) parts.push(await writeKb(digest, md));
   const delivered = parts.join(' · ');
 

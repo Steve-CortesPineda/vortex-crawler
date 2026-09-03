@@ -1,0 +1,11 @@
+import { AgentBrowser } from '../packages/core/dist/index.js';
+const b = new AgentBrowser({ reachProfile: 'natural', headless: true, channel: 'chrome', profileDir: `${process.env.HOME}/.vortex-assist` });
+await b.open();
+await b.goto('https://www.npmjs.com/settings/stevecortesp/tokens');
+await b.screenshot('/tmp/npm-tokens.png');
+const ex = await b.extract();
+console.log('URL:', (await b.links()).length, 'links');
+console.log('LOGGED_IN:', !/log in|sign in/i.test(ex.markdown.slice(0,500)));
+console.log('TITLE:', ex.title);
+console.log(ex.markdown.slice(0, 600));
+await b.close(); process.exit(0);
