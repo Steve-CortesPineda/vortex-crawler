@@ -6,7 +6,7 @@ autonomous browsing agent, multi-engine search, and an always-on tracking oracle
 
 ## Status (Sep 2026)
 
-Active development. The browser daemon (`browser-daemon.mjs`) and tracker daemon (`tracker-daemon.mjs`) are experimental — they work but are tightly coupled to the local VANTA/Avanti setup and may be retired or refactored. The core crawler, MCP server, CLI, and extractors are stable and usable standalone. npm packages (`@stevecortesp/vortex-*`) are at 0.1.0; a publish refresh is planned.
+Active development. The browser daemon (`browser-daemon.mjs`) and tracker daemon (`tracker-daemon.mjs`) are experimental — they work but are tightly coupled to the local VANTA/Avanti setup and may be retired or refactored. The core crawler, MCP server, CLI, and extractors are stable and usable standalone. GitHub and the package versions in this repo are **0.2.0 (32 MCP tools)**. Clone and `pnpm build` if `npx` still serves the older 0.1.0 / 18-tool build.
 
 ## Why Vortex?
 
@@ -239,7 +239,7 @@ pnpm build      # build all packages
 pnpm test       # run the test suite
 ```
 
-Requires Node 18+ and pnpm 8+. The repo is a pnpm/turbo monorepo — packages live under `packages/`.
+Requires **Node 22+** and **pnpm 11** (`packageManager` is `pnpm@11.1.3`). The repo is a pnpm/turbo monorepo — packages live under `packages/`.
 
 ## Browser daemon (shared, warm, parallel)
 

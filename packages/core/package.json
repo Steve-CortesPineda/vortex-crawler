@@ -1,6 +1,6 @@
 {
   "name": "@stevecortesp/vortex-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Adaptive 3-tier web crawler with LLM-optimized markdown, multi-engine search, an autonomous browsing agent, and anti-bot/stealth.",
   "license": "MIT",
   "author": "Steve Cortes-Pineda",

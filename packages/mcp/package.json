@@ -1,7 +1,7 @@
 {
   "name": "@stevecortesp/vortex-mcp",
-  "version": "0.1.0",
-  "description": "MCP server exposing Vortex's 18 tools (scrape, crawl, search, autonomous browse/reach, discovery, tracking) to AI agents.",
+  "version": "0.2.0",
+  "description": "MCP server exposing Vortex's 32 tools (scrape, crawl, search, autonomous browse/reach, discovery, tracking, VANTA, desktop AX) to AI agents.",
   "license": "MIT",
   "author": "Steve Cortes-Pineda",
   "homepage": "https://github.com/Steve-CortesPineda/vortex-crawler#readme",

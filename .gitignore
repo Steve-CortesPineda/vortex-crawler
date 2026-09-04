@@ -9,3 +9,5 @@ dist/
 .DS_Store
 benchmarks/search-quality-history/
 tools/npm-token.mjs
+*.pre-leadcapture-*
+_delisted_make_pdfs.mjs
